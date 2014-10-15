@@ -108,7 +108,7 @@ void build_app_msgs(){
  	app_message_register_inbox_received(in_received_handler);
    app_message_register_inbox_dropped(in_dropped_handler);
 	 
-	const uint32_t inbound_size = 64;
-	const uint32_t outbound_size = 64;
+	const uint32_t inbound_size = 1024;
+	const uint32_t outbound_size = 1024;
    app_message_open(inbound_size, outbound_size);
 }

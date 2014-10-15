@@ -1,4 +1,5 @@
 #pragma once
+#include "pebble.h"
 #define DISP_WIDTH 20 //width of each display
 void dashboard_init();
 enum  { //to manage the display fields
@@ -7,6 +8,11 @@ enum  { //to manage the display fields
 	PERFACTUALTWA, //perfActualTWA, (2)
 	TWS,
 	TWD,
+	PERFTGTBTV,
+	PERFTGTTWA,
+	PERFTGTVMG,
+	PERFACTUALVMG,
+	PERFPCDISP,
 	numberOfDisplays, //count of the number of displays
 };
 TextLayer * displayFields[100];

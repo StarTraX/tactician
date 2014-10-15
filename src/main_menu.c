@@ -2,6 +2,7 @@
 #include <main_menu.h>
 #include <tactician.h>
 #include <performance.h>
+
 #define NUM_MENU_SECTIONS 2
 #define NUM_FIRST_MENU_ITEMS 3
 #define NUM_SECOND_MENU_ITEMS 1
@@ -30,6 +31,7 @@ static int hit_count = 0;
 static void menu_select_callback(int index, void *ctx) {
 	
 	if(index==0)
+		//scroll_window();
 		 window_root_init(); // start the tactician app here 
 	if(index==1){
 		show_performance();
