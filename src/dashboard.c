@@ -13,10 +13,10 @@ int mLoopCounter=0;
 	 Tuple *dataReceived =dict_read_first(iter);
 	 while (dataReceived != NULL){
 		 if( text_layer_get_layer(displayFields[dataReceived->key] ) != NULL ){ //check if the window hosting the text has been created
-			 if(window_is_loaded(layer_get_window(text_layer_get_layer(displayFields[dataReceived->key] )))) {//and the window is loaded				 
+			// if(window_is_loaded(layer_get_window(text_layer_get_layer(displayFields[dataReceived->key] )))) {//and the window is loaded				 
 				snprintf(mAns[dataReceived->key], 20,  " %s", dataReceived->value->cstring);
 				text_layer_set_text(displayFields[dataReceived->key],(mAns[dataReceived->key] ));		
-			}
+			//}
 		 }
 		 dataReceived = dict_read_next(iter);
 	 }
@@ -94,6 +94,8 @@ void build_app_msgs(){
 
  void dashboard_init(){
 	APP_MSGS = malloc(sizeof(struct APP_MSG )*512); // store msgs and frq
+	s_res_gothic_28 = fonts_get_system_font(FONT_KEY_GOTHIC_28);	
+
 	//build_app_msgs();
 	 mAns=malloc(numberOfDisplays * sizeof(char *));
 	 mAns[0] = malloc(numberOfDisplays * DISP_WIDTH * sizeof(char));

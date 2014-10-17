@@ -2,6 +2,7 @@
 #include <main_menu.h>
 #include <tactician.h>
 #include <performance.h>
+#include <navigation_menu.h>
 
 #define NUM_MENU_SECTIONS 1
 #define NUM_FIRST_MENU_ITEMS 3
@@ -23,9 +24,11 @@ static void menu_select_callback(int index, void *ctx) {
 	if(index==0)
 		//scroll_window();
 		 window_root_init(); // start the tactician app here 
-	if(index==1){
+	if(index==1)
 		show_performance();
-	}
+	if(index==2)
+		show_nav_menu();
+
 		
   // Here we just change the subtitle to a literal string
   first_menu_items[index].subtitle = "You've hit select here!";

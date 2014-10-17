@@ -1,17 +1,17 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
 Pebble.addEventListener("ready",
   function(e) {
-	  //Pebble.showSimpleNotificationOnPebble("DEBUG","eventListener");
+	 Pebble.showSimpleNotificationOnPebble("DEBUG","javascript initiated");
 	   readPolars(); //this can be done befoew watch is ready
 	  //readNavData();
 	 
  
   }// eventListener callback
 ); //addEventListener
-var WEB_HOST = "http://192.168.0.6:8080/dev/";
+
 var polars;
-	
-//var WEB_HOST = "http://192.168.43.1:8080/dev/"
+//var WEB_HOST = "http://192.168.0.6:8080/dev/";	
+var WEB_HOST = "http://192.168.43.1:8080/dev/";
 
 var readPolarsRequest = new XMLHttpRequest(); //for read Polars data
 var polars = [];
@@ -56,50 +56,51 @@ function readPolars(){
 var yacht = {};
 yacht.prevValues = {};
 var readNavDataRequest = new XMLHttpRequest(); //for read NavData
-var selectCourseRequest = new XMLHttpRequest(); //called to set the race course
-var startLineRequest = new XMLHttpRequest(); //called once only Ping Start line button request
-var windWebRequest = new XMLHttpRequest(); //called for Read Wind Direction Speed
-var refreshCourseRequest = new XMLHttpRequest(); //called at 4 minutes to refresh the course
+//var selectCourseRequest = new XMLHttpRequest(); //called to set the race course
+//var startLineRequest = new XMLHttpRequest(); //called once only Ping Start line button request
+//var windWebRequest = new XMLHttpRequest(); //called for Read Wind Direction Speed
+//var refreshCourseRequest = new XMLHttpRequest(); //called at 4 minutes to refresh the course
 
-var compassPoints = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW", "N"];
+//var compassPoints = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW", "N"];
 
-var loop = true;
+//var loop = true;
 var navDataFlag = false; // set while waiting for response
 var navDataCount = 0;
-var TWSDataFlag = false; // set while waiting for response
-var TWSDataCount = 0;
-var TWDDataFlag = false; // set while waiting for response
-var TWDDataCount = 0;
-var WIND_CYCLES = 5; //seconds per cycle
-var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
+//var TWSDataFlag = false; // set while waiting for response
+//var TWSDataCount = 0;
+//var TWDDataFlag = false; // set while waiting for response
+//var TWDDataCount = 0;
+//var WIND_CYCLES = 5; //seconds per cycle
+//var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
 
-var styleDescs = [" ","Agressive","Standard","Defensive"];
+//var styleDescs = [" ","Agressive","Standard","Defensive"];
 var styleRates = [0, 90, 83, 75];
 var STYLE=2 ; 
-var knotsToMps = .5144444; // convert knots to metres/sec
+var knotsToMps = 0.5144444; // convert knots to metres/sec
 var LOCAL_MAG_VAR = 12.5; 
-var YACHT_LENGTH = 12.4; 
-var GPS_BEHIND_BOW = 6; 
+//var YACHT_LENGTH = 12.4; 
+//var GPS_BEHIND_BOW = 6; 
 
 var presentPosData;
 //var useGpsLatLon = false ; //true when testing with 
-var panelsArray; var currentPanelIdx;
-var MIN_ANGLE_FOR_NEXT_MARK = 100; //degrees 
-var MIN_ANGLE_FOR_UPWIND = 60; //degrees, used for calc layline upwind
+//var panelsArray; var currentPanelIdx;
+//var MIN_ANGLE_FOR_NEXT_MARK = 100; //degrees 
+//var MIN_ANGLE_FOR_UPWIND = 60; //degrees, used for calc layline upwind
 var nmToMetres = 1852;
-var loopCounter = 0;
+//var loopCounter = 0;
+var pollComplete= false;
 var lastPolledTimeStamp = 0;
 var upwindTarget, downwindTarget;
 commsTimer(); //start the timer
 function commsTimer(){
 	var commsTimerTimeStamp = Date.now();
-		if (commsTimerTimeStamp - lastPolledTimeStamp > 3000 || pollComplete == true){
+		if (commsTimerTimeStamp - lastPolledTimeStamp > 3000 || pollComplete === true){
 			lastPolledTimeStamp = commsTimerTimeStamp;
 			readNavData();
 		}		
 	setTimeout("commsTimer()",500); 
 }
-var pollComplete;
+
 function readNavData(){
 
 	pollComplete = false;
@@ -123,7 +124,7 @@ function readNavData(){
 	}; //onreadystatechange 
 
 }
-var prevTimeMs = 0;
+//var prevTimeMs = 0;
 var damping=3;
 function loggerDataType (){
 		this.log = 0; 
@@ -170,7 +171,7 @@ function dispData(JSONcombinedData){
 	var combinedData =JSON.parse(JSONcombinedData); 
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "HERE");
 	presentPosData =combinedData.presentPosData;
-	var startLinePoints=combinedData.startLinePoints;
+//	var startLinePoints=combinedData.startLinePoints;
 
 	var reportTime = new Date(Number(presentPosData.timeMs));
 	var formattedReportTime = (reportTime.getHours()<10?"0":"")+reportTime.getHours() + ":"+
@@ -247,8 +248,51 @@ function dispData(JSONcombinedData){
 	//NAVIGATION STUFF
 	var COGMagDegs = Math.round(Number(dampedValues.COG)- LOCAL_MAG_VAR);
 	COGMagDegs += 360*(COGMagDegs<=0?1:0); //COG is True, not Mag
+	var wptDispDisp;
+	if (presentPosData.WptDist < 1){
+		wptDispDisp = Math.round(presentPosData.WptDist*nmToMetres) +" m";
+	}
+	else {
+		wptDispDisp = Math.round(presentPosData.WptDist*100)/100 + " Nm";
+	}
+	var nextLegAWADisp,nextLegAWSDisp,apparent, nextLegTWA,BTV,nextLegText;
+	if (presentPosData.nextLegName !="FINISHED"){
+		// what is the next leg: Beat, jib reach, Kite reach, kite downwind (with gybes)?
+		nextLegTWA = Math.round(dampedValues.TWD - presentPosData.nextLegHDG) ; //nextLegHDG is deg's +ve is stbd tack/gybe
+		nextLegTWA += 360*(nextLegTWA <-180?1:(nextLegTWA >180?-1:0));
+		for (var twsIdx = 0; twsIdx < targetTWS.length; twsIdx++ ){
+			if 	(Math.abs(dampedValues.TWS) <=targetTWS[twsIdx] ){ // find the index for this TWS
+				break;}}
+		nextLegText = "";
+		if (Math.abs(nextLegTWA) <= targetUpwindTWAs[twsIdx] ){ // a work
+			nextLegText =  "Beat";
+			apparent = calcApparent(dampedValues.TWS,upwindTarget.TWA, upwindTarget.BTV  );
+			nextLegAWADisp= Math.round(apparent.AWA);
+			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
+		}
+		else if (Math.abs(nextLegTWA) <= targetMinTwaForKite[twsIdx]){// jib reach
+			BTV = calcReachBTV(dampedValues.TWS, dampedValues.TWA );
+			apparent = calcApparent(dampedValues.TWS, nextLegTWA, BTV  );
+			nextLegText = "Jib reach-" + (apparent.AWA >0?"Stbd":"Port") ;
+			nextLegAWADisp = Math.round(apparent.AWA);
+			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
+		}
+		else if (Math.abs(nextLegTWA) <= targetDownwindTWAs[twsIdx]) {// kite reach	
+			BTV = calcReachBTV(dampedValues.TWS, dampedValues.TWA );
+			apparent = calcApparent(dampedValues.TWS, nextLegTWA, BTV  );
+			nextLegText = "Kite reach-"+(apparent.AWA >0?"Stbd":"Port") ;
+			nextLegAWADisp = Math.round(apparent.AWA);
+			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
+		}
+		else {// downwind kite
+			nextLegText = "Kite run";
+			apparent = calcApparent(dampedValues.TWS, downwindTarget.TWA, upwindTarget.BTV  );
+			nextLegAWADisp = Math.round(apparent.AWA);
+			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
+		}
 
-
+	}
+	
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "sendAppMessage");
  	Pebble.sendAppMessage({ "0":  formattedReportTime, //GPS Time
 						   "1": "Log "+ dampedValues.log, //perfActualBtv
@@ -262,8 +306,20 @@ function dispData(JSONcombinedData){
 						   "9": perfPcDisp,
 						   "10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,
 						   "11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs,
-						   "12" : "Brg Clock " +presentPosData.wptBearingClock ,
-						   "13" : "Brg Degs" + presentPosData.wptBearingDegs  //degrees relative to current heading 
+						   "12" : presentPosData.legIdx+":"+ presentPosData.WptName, //WptName
+						   "13" : "Dist" + wptDispDisp, // next mark distance
+						   "14" : "Brg Clock " +presentPosData.wptBearingClock ,
+						   "15" : "Brg Degs" + presentPosData.wptBearingDegs,  //degrees relative to current heading 
+						   "16" : "VMG " + dampedValues.wptVMG ,//wptVMG
+						   "17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), 
+						   "18" : nextLegText, //Next Leg Desc
+						   "19" : presentPosData.nextLegName, //next leg name
+						   "20": "Hdg(M)" + Math.round(presentPosData.nextLegHDG), //next leg heading
+						   "21" : "TWA "+ nextLegTWA, 
+						   "22" : "TWS " +  dampedValues.TWS, 
+						   "23" : "AWA "+ nextLegAWADisp,
+						   "24" : "AWS " +nextLegAWSDisp,
+						   
 						   
 						  }, function(e) { //Success callback
 		lastPolledTimeStamp = Date.now();	//managing the polling process
@@ -361,6 +417,16 @@ function calcReachBTV(TWS, TWA ){
 	var d = Number(polars[windAngleIdx][twsIdx]); 
 	var ab = a + (b -a)*s;
 	var cd = c + (d -c)*s;
-	return ab + (cd- ab)*t;	 //knots
-	
+	return ab + (cd- ab)*t;	 //knots	
+}
+/*
+ * calcApparent (TWS: knots, mps, TWA: degrees, BTV:kts, mps
+ * returns AWA:degrees, AWS: kts/mps
+ */
+function calcApparent(TWS, TWA, BTV){
+	retObj={};
+	twaRad = TWA*Math.PI/180;
+	retObj.AWS = Math.sqrt(BTV*BTV +TWS*TWS +2*TWS*BTV*Math.cos(twaRad) ); //cosine rule with + not - as TWA is the external angle
+	retObj.AWA = Math.asin(TWS/retObj.AWS*Math.sin(twaRad))*180/Math.PI; // sine rule
+	return retObj;
 }
