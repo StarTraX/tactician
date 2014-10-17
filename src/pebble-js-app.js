@@ -10,7 +10,7 @@ Pebble.addEventListener("ready",
 ); //addEventListener
 var WEB_HOST = "http://192.168.0.6:8080/dev/";
 var polars;
-
+	
 //var WEB_HOST = "http://192.168.43.1:8080/dev/"
 
 var readPolarsRequest = new XMLHttpRequest(); //for read Polars data
@@ -47,8 +47,8 @@ function readPolars(){
 						
 					}// length > 0						
 				}//status == 200
-			  	else 
-				  Pebble.showSimpleNotificationOnPebble("readNavDataRequest.status",readPolarsRequest.status);
+			  	//else 
+				 // Pebble.showSimpleNotificationOnPebble("readNavDataRequest.status",readPolarsRequest.status);
 			} //readyState == 4
 
 		   }; //onreadystatechange 		
@@ -115,9 +115,9 @@ function readNavData(){
 
 						dispData(readNavDataRequest.responseText);   		
 			   	} // if status == 200
-			  else {
-				  Pebble.showSimpleNotificationOnPebble("readNavDataRequest.status",readNavDataRequest.status);
-			  }
+			 // else {
+				 // Pebble.showSimpleNotificationOnPebble("readNavDataRequest.status",readNavDataRequest.status);
+			//  }
 		   } // if readyState == 4
 		
 	}; //onreadystatechange 
@@ -242,10 +242,13 @@ function dispData(JSONcombinedData){
 		var intPerfActualVMG = dampedValues.log*Math.cos( presentPosData.wptBearingDegs*Math.PI/180); //wptBearingDegs should be 180.
 		perfActualVMG = Math.round(intPerfActualVMG*10)/10;
 		var reachPerformance = Math.round(perfActualVMG /tgtBTV * 100); //
+		perfPcDisp =pointOfSailing+":"+ Math.abs(reachPerformance)+"%";
+	}			
+	//NAVIGATION STUFF
+	var COGMagDegs = Math.round(Number(dampedValues.COG)- LOCAL_MAG_VAR);
+	COGMagDegs += 360*(COGMagDegs<=0?1:0); //COG is True, not Mag
 
-		perfPcDisp =pointOfSailing+":"+ 
-			Math.abs(reachPerformance)+"%";
-	}
+
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "sendAppMessage");
  	Pebble.sendAppMessage({ "0":  formattedReportTime, //GPS Time
 						   "1": "Log "+ dampedValues.log, //perfActualBtv
@@ -256,13 +259,18 @@ function dispData(JSONcombinedData){
 						   "6": "TgT TWA " + perfTgtTWA,
 						   "7": "TgT VMG " + perfTgtVMG,
 						   "8": "Act VMG " + perfActualVMG,
-						   "9": perfPcDisp					   						   
+						   "9": perfPcDisp,
+						   "10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,
+						   "11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs,
+						   "12" : "Brg Clock " +presentPosData.wptBearingClock ,
+						   "13" : "Brg Degs" + presentPosData.wptBearingDegs  //degrees relative to current heading 
+						   
 						  }, function(e) { //Success callback
 		lastPolledTimeStamp = Date.now();	//managing the polling process
 		pollComplete = true;
   			},
   		function(e) { //Fail callback
-   			Pebble.showSimpleNotificationOnPebble("Nack Message",  e.error.message);
+   			//Pebble.showSimpleNotificationOnPebble("Nack Message",  e.error.message);
   		}
 	);	
 

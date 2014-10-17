@@ -43,14 +43,10 @@ static void initialise_ui(void) {
   layer_add_child(window_get_root_layer(performance_window), scroll_layer_get_layer(scroll_layer));
 }
 
-static void destroy_ui(void) {
-  window_destroy(performance_window);
-
- // text_layer_destroy(displayFields[GPSTIME]);
-}
 
 static void handle_window_unload(Window* window) {
-  destroy_ui();
+  	window_stack_remove(performance_window, true);
+  	window_destroy(performance_window);
 }
 
 void show_performance(void) {
@@ -59,8 +55,4 @@ void show_performance(void) {
     .unload = handle_window_unload,
   });
   window_stack_push(performance_window, true);
-}
-
-void hide_performance(void) {
-  window_stack_remove(performance_window, true);
 }

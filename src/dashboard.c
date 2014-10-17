@@ -6,15 +6,17 @@ TextLayer *perfPcDisp, *gpsTime;
 char ** mAns;
 int mLoopCounter=0;
 
-static int dispCounter=0;
+//static int dispCounter=0;
  static void in_received_handler(DictionaryIterator *iter, void *context) {
 	 //snprintf(mAns[GPSTIME], 20, "DashBd: %d", ++dispCounter);
 	 //text_layer_set_text(perfPcDisp,"Dashboard" );
 	 Tuple *dataReceived =dict_read_first(iter);
 	 while (dataReceived != NULL){
-		 if( text_layer_get_layer(displayFields[dataReceived->key] ) != NULL ){
-			snprintf(mAns[dataReceived->key], 20,  " %s", dataReceived->value->cstring);
-			text_layer_set_text(displayFields[dataReceived->key],(mAns[dataReceived->key] ));		 	
+		 if( text_layer_get_layer(displayFields[dataReceived->key] ) != NULL ){ //check if the window hosting the text has been created
+			 if(window_is_loaded(layer_get_window(text_layer_get_layer(displayFields[dataReceived->key] )))) {//and the window is loaded				 
+				snprintf(mAns[dataReceived->key], 20,  " %s", dataReceived->value->cstring);
+				text_layer_set_text(displayFields[dataReceived->key],(mAns[dataReceived->key] ));		
+			}
 		 }
 		 dataReceived = dict_read_next(iter);
 	 }

@@ -13,6 +13,10 @@ enum  { //to manage the display fields
 	PERFTGTVMG,
 	PERFACTUALVMG,
 	PERFPCDISP,
+	SOG, //NAVIGATION
+	COG, //COG(M)
+	BRGCLOCK, //Brg Clock
+	BRGDEGS, //Brg Degs
 	numberOfDisplays, //count of the number of displays
 };
 TextLayer * displayFields[100];
