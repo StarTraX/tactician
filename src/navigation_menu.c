@@ -3,6 +3,7 @@
 #include "navigation.h"
 #include "nav_next_mark.h"
 #include "nav_next_leg.h"
+#include "nav_current_course.h"
 	
 
 static Window *nav_menu_window;
@@ -14,7 +15,7 @@ static SimpleMenuLayer *nav_menu_layer;
 static SimpleMenuSection menu_sections[1];
 
 // Each section is composed of a number of menu items
-static SimpleMenuItem nav_menu_items[3];
+static SimpleMenuItem nav_menu_items[4];
 
 // You can capture when the user selects a menu icon with a menu item select callback
 static void nav_menu_select_callback(int index, void *ctx) {	
@@ -24,6 +25,8 @@ static void nav_menu_select_callback(int index, void *ctx) {
 		show_nav_next_leg();
 	if(index==2)
 		show_navigation(); //speed & heading
+	if(index==3)
+		show_nav_course(); //current course
 		
   layer_mark_dirty(simple_menu_layer_get_layer(nav_menu_layer));
 }
@@ -48,7 +51,11 @@ static void nav_menu_window_load(Window *nav_menu_window) {
     .subtitle = " ",
     .callback = nav_menu_select_callback,
   };
-
+ nav_menu_items[num_a_items++] = (SimpleMenuItem){
+    .title = "Current Course ",
+    .subtitle = " ",
+    .callback = nav_menu_select_callback,
+  };
  
 
   // Bind the menu items to the corresponding menu sections

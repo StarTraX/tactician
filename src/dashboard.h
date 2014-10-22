@@ -28,9 +28,27 @@ enum  { //to manage the display fields
 	NEXTLEGTWSE, //22
 	NEXTLEGAWA, //23
 	NEXTLEGAWS, //24	
+	TEMP, //25
+	DEPTH, //26
+	WPTETI, //27
+	WPTETA, //28
+	LAYLINEHDG, //29
+	LAYLINETIME, //30
+	LAYLINEDIST, //31
+	COMPASS, //32
+	CURRENTHDG, //33
+	CURRENTSPEED, //34
+	CURRENTDIR, //35
+	CURRENTEFFECT, //36
+	COURSE, //37
+filler,
+
 	numberOfDisplays, //count of the number of displays
+	
 };
-TextLayer * displayFields[100];
+TextLayer * displayFields[numberOfDisplays];
+char ** mAns;
+char * currentCourseText;
 GFont s_res_gothic_28;
 int rowIndex;
 int rowSpace;

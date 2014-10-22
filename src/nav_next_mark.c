@@ -26,14 +26,19 @@ static void initialise_nav_next_mark_ui(void) {
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
   	scroll_layer_set_click_config_onto_window(scroll_layer, s_window);
-  	scroll_layer_set_content_size(scroll_layer, GSize(144,400)); // size of the surface that scrolls???
+  	scroll_layer_set_content_size(scroll_layer, GSize(144,500)); // size of the surface that scrolls???
 	set_nav_next_mark_text_layer(GPSTIME);
 	set_nav_next_mark_text_layer(WPTNAME);
 	set_nav_next_mark_text_layer(WPTDISPDIST);
+	set_nav_next_mark_text_layer(LAYLINEHDG); //Heading "Lay-line"
+	set_nav_next_mark_text_layer(LAYLINEDIST);
+	set_nav_next_mark_text_layer(LAYLINETIME);
 	set_nav_next_mark_text_layer(BRGCLOCK);
 	set_nav_next_mark_text_layer(BRGDEGS);
 	set_nav_next_mark_text_layer(WPTVMG);
 	set_nav_next_mark_text_layer(WPTBRGMAG);
+	set_nav_next_mark_text_layer(WPTETI);
+	set_nav_next_mark_text_layer(WPTETA);
 
   layer_add_child(window_get_root_layer(s_window), scroll_layer_get_layer(scroll_layer));
 }

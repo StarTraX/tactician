@@ -29,7 +29,7 @@ static void initialise_nav_next_leg_ui(void) {
   	scroll_layer_set_click_config_onto_window(scroll_layer, s_window);
   	scroll_layer_set_content_size(scroll_layer, GSize(144,400)); // size of the surface that scrolls???
 
-	set_nav_next_leg_text_layer( 	NEXTLEGDESC);
+	set_nav_next_leg_text_layer( NEXTLEGDESC);
 	set_nav_next_leg_text_layer( NEXTLEGNAME); //19 Next leg mark name
 	set_nav_next_leg_text_layer( NEXTLEGHDG); //20
 	set_nav_next_leg_text_layer( NEXTLEGTWA);//21

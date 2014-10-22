@@ -31,6 +31,15 @@ static void initialise_nav_ui(void) {
 	set_nav_text_layer(GPSTIME);
 	set_nav_text_layer(SOG);
 	set_nav_text_layer(COG);
+	set_nav_text_layer(PERFACTUALBTV);
+	set_nav_text_layer(COMPASS);
+	set_nav_text_layer(CURRENTHDG );
+	set_nav_text_layer(CURRENTSPEED );
+	set_nav_text_layer(CURRENTDIR );
+	set_nav_text_layer(CURRENTEFFECT  );
+	set_nav_text_layer(DEPTH);
+	set_nav_text_layer(TEMP);
+
 
   layer_add_child(window_get_root_layer(s_window), scroll_layer_get_layer(scroll_layer));
 }

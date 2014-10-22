@@ -4,14 +4,16 @@ Pebble.addEventListener("ready",
 	 Pebble.showSimpleNotificationOnPebble("DEBUG","javascript initiated");
 	   readPolars(); //this can be done befoew watch is ready
 	  //readNavData();
-	 
+	  read_course();
+	 commsTimer(); //start the timer
  
   }// eventListener callback
 ); //addEventListener
 
 var polars;
 //var WEB_HOST = "http://192.168.0.6:8080/dev/";	
-var WEB_HOST = "http://192.168.43.1:8080/dev/";
+//var WEB_HOST = "http://192.168.43.1:8080/dev/";
+var WEB_HOST = "http://localhost:8080/dev/";
 
 var readPolarsRequest = new XMLHttpRequest(); //for read Polars data
 var polars = [];
@@ -61,7 +63,7 @@ var readNavDataRequest = new XMLHttpRequest(); //for read NavData
 //var windWebRequest = new XMLHttpRequest(); //called for Read Wind Direction Speed
 //var refreshCourseRequest = new XMLHttpRequest(); //called at 4 minutes to refresh the course
 
-//var compassPoints = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW", "N"];
+var compassPoints = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW", "N"];
 
 //var loop = true;
 var navDataFlag = false; // set while waiting for response
@@ -84,14 +86,14 @@ var LOCAL_MAG_VAR = 12.5;
 var presentPosData;
 //var useGpsLatLon = false ; //true when testing with 
 //var panelsArray; var currentPanelIdx;
-//var MIN_ANGLE_FOR_NEXT_MARK = 100; //degrees 
-//var MIN_ANGLE_FOR_UPWIND = 60; //degrees, used for calc layline upwind
+var MIN_ANGLE_FOR_NEXT_MARK = 100; //degrees 
+var MIN_ANGLE_FOR_UPWIND = 60; //degrees, used for calc layline upwind
 var nmToMetres = 1852;
 //var loopCounter = 0;
 var pollComplete= false;
 var lastPolledTimeStamp = 0;
 var upwindTarget, downwindTarget;
-commsTimer(); //start the timer
+
 function commsTimer(){
 	var commsTimerTimeStamp = Date.now();
 		if (commsTimerTimeStamp - lastPolledTimeStamp > 3000 || pollComplete === true){
@@ -290,8 +292,96 @@ function dispData(JSONcombinedData){
 			nextLegAWADisp = Math.round(apparent.AWA);
 			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
 		}
-
 	}
+		// LAY-LINE calc
+	var HDG_tgt, markAngle, layLineDist, layLineTime, wptETI, wptETA, secondsToWpt,
+		formattedWptETA;
+	if (dampedValues.TWA >0) { // stbd tack
+		 HDG_tgt = Number(dampedValues.TWD) - upwindTarget.TWAt*180/Math.PI; // if stbd
+		 markAngle = dampedValues.wptBrgTrue - HDG_tgt ; // both True not Magnetic
+	} 
+	else {// Port tack
+		 HDG_tgt = Number(dampedValues.TWD) + upwindTarget.TWAt*180/Math.PI; 
+		 markAngle = HDG_tgt -dampedValues.wptBrgTrue; // both True not Magnetic
+	}
+	markAngle +=360*(markAngle<-180?1:( markAngle >180?-1:0)); // to -180:0:180
+	if (dampedValues.SOG > 0 && // not if stationary
+		presentPosData.WptDist > 0 && // only if valid wpt dist
+		Math.abs(markAngle )< MIN_ANGLE_FOR_NEXT_MARK && // not if going away from mark
+		Math.abs(dampedValues.TWA )< MIN_ANGLE_FOR_UPWIND   // not downwind
+		){
+			var layLine = calcLayLine( // * returns Obj. dist: metres* 	.time: seconds to lay-line *  .ETI : seconds to mark via lay-line
+				 presentPosData.WptDist, //nm
+				 markAngle,  // -180<= markAngle <180
+				 upwindTarget.TWAt*180/Math.PI,  // -180<TWA<180
+				 upwindTarget.BTVt /knotsToMps // knots
+			); 
+			if (layLine.dist< 0.5){ //< 1000 metres, show metres, else Nm
+				layLineDist = Math.round(layLine.dist * nmToMetres) + " m";
+				}
+			else{
+				layLineDist = Math.round(layLine.dist*10)/10 + " Nm";
+				}
+			layLineTime = secondsToMinSecs(layLine.secondsToLayLine);	
+			secondsToWpt = presentPosData.WptDist/dampedValues.wptVMG* 3600;
+			wptETI = secondsToMinSecs(secondsToWpt);
+			wptETA =  new Date(Number(presentPosData.timeMs) + layLine.ETI*1000);
+			formattedWptETA = (wptETA.getHours()<10?"0":"") + wptETA.getHours() + ":"+
+				(wptETA.getMinutes()<10?"0":"") + wptETA.getMinutes()  ;		
+	}
+	else if (Math.abs(dampedValues.TWA )>= MIN_ANGLE_FOR_UPWIND){ // use dampedValues.wptVMG, presentPosData.WptDist
+		layLineDist = " ";
+		layLineTime= " ";	
+		secondsToWpt = presentPosData.WptDist/dampedValues.wptVMG* 3600;
+		wptETI = secondsToMinSecs(secondsToWpt);
+		wptETA =  new Date(Number(presentPosData.timeMs) + secondsToWpt*1000);
+		formattedWptETA = (wptETA.getHours()<10?"0":"") + wptETA.getHours() + ":"+
+			(wptETA.getMinutes()<10?"0":"") + wptETA.getMinutes()  ;	
+	}
+	else { //TODO downwind Lay-Line
+		layLineDist= " ";
+		layLineTime = " ";
+		wptETI =" ";
+		wptETA =" ";
+	} 
+	var compassDisp = (dampedValues.compass<10?"00":(dampedValues.compass<100?"0":""))+Math.round(dampedValues.compass);
+		// Calc and display current/tide set
+	var currentSpeed, currentAngleDegsMag, currentCompassPoint, effect;
+	var ARads = ( dampedValues.COG - (Number(dampedValues.compass) + LOCAL_MAG_VAR)) * Math.PI/180; // GPS COG - compass Hdg 
+	var currentSpeedKts = Math.sqrt(dampedValues.log*dampedValues.log + dampedValues.SOG* dampedValues.SOG -
+			 2*dampedValues.log*dampedValues.SOG *Math.cos(ARads));
+	if (currentSpeedKts < 0.05) {
+		currentAngleDegsMag = "N/A";
+		currentSpeed = "0";}
+	else{  
+		if (dampedValues.log < dampedValues.SOG ){ //angle C, COG to set angle is acute: set is slowing us down
+			var anglec = Math.asin(dampedValues.log*Math.sin(ARads)/currentSpeedKts);// gives internal angle
+			var anglecDegs = anglec*180/Math.PI;
+			 currentAngleDegsMag = Number(dampedValues.COG) + LOCAL_MAG_VAR  + anglecDegs;
+		}
+		else{ // angle B, compass to set angle is acute (sin rule only works with acute angles!)
+			var angleb = Math.asin(dampedValues.SOG*Math.sin(ARads)/currentSpeedKts); // gives internal angle
+			var anglebDegs = angleb*180/Math.PI;
+			currentAngleDegsMag = Number(dampedValues.compass)  + (180-  anglebDegs);
+		 }	
+		var mCount = 0;
+		while (true){
+			if (currentAngleDegsMag<0 ) currentAngleDegsMag += 360;
+			else if (currentAngleDegsMag> 360) currentAngleDegsMag -= 360;
+			else break;
+			if (++mCount >2) break; // safety route to stop runaway if the logic fails!
+		}
+		//currentAngleDegsMag += 360 *(currentAngleDegsMag<0?1:(currentAngleDegsMag>360?-1:0)); //yielded silly numbers???!!
+
+		currentSpeed =Math.round(currentSpeedKts*10)/10;
+		currentAngleDegsMag = Math.round(currentAngleDegsMag);
+		for (var idx = 0; idx <= 16; idx++){
+			if (idx *22.5 + 11.25 >currentAngleDegsMag ){
+				currentCompassPoint = compassPoints[idx];
+				break;}	}
+		currentAngleDegsMag = Math.round(currentAngleDegsMag) +" ("+currentCompassPoint+")";
+	}
+	effect = Math.round((dampedValues.SOG -dampedValues.log)*10)/10;	 
 	
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "sendAppMessage");
  	Pebble.sendAppMessage({ "0":  formattedReportTime, //GPS Time
@@ -319,6 +409,19 @@ function dispData(JSONcombinedData){
 						   "22" : "TWS " +  dampedValues.TWS, 
 						   "23" : "AWA "+ nextLegAWADisp,
 						   "24" : "AWS " +nextLegAWSDisp,
+						   "25" : "Temp " + Number(presentPosData.wTemp), //water temp
+						   "26" : "Depth(m) " + presentPosData.depthM , //depth metres
+						   "27" : "ETI " + wptETI, //formatted eti
+						   "28" : "ETA " + formattedWptETA, 
+						   "29" : "Lay-line" , //Heading
+						   "30" : "   Time "+ layLineTime,
+						   "31" : "   Dist " + layLineDist,
+						   "32" : "Hdg(M) " +compassDisp,
+						   "33" : "Current", //heading
+						   "34" : " Speed "+ currentSpeed,
+						   "35" : " Dir " + currentAngleDegsMag,
+						   "36" : " Effect "+ effect,
+						   // #37 used for current course
 						   
 						   
 						  }, function(e) { //Success callback
@@ -330,8 +433,8 @@ function dispData(JSONcombinedData){
   		}
 	);	
 
-	for (var idx in prevValues) // update previous values
-		prevValues[idx] = dampedValues[idx];
+	for (var prevValuesIdx in prevValues) // update previous values
+		prevValues[prevValuesIdx] = dampedValues[prevValuesIdx];
 
 }
 
@@ -424,9 +527,67 @@ function calcReachBTV(TWS, TWA ){
  * returns AWA:degrees, AWS: kts/mps
  */
 function calcApparent(TWS, TWA, BTV){
-	retObj={};
-	twaRad = TWA*Math.PI/180;
+	var retObj={};
+	var twaRad = TWA*Math.PI/180;
 	retObj.AWS = Math.sqrt(BTV*BTV +TWS*TWS +2*TWS*BTV*Math.cos(twaRad) ); //cosine rule with + not - as TWA is the external angle
 	retObj.AWA = Math.asin(TWS/retObj.AWS*Math.sin(twaRad))*180/Math.PI; // sine rule
 	return retObj;
+}
+/**
+ * Time and dist to Lay-line plus ETI to mark
+ * range: dist to mark, nm
+ * markAngle: angle, degs from current position to mark, -180<=markAngle<180
+ * TWA: True Wind Angle, degrees -180<=TWA<=180. -ve is to left
+ * BTV: SOG in knots
+ * returns Obj. dist: nm
+ * 	.time: seconds to lay-line
+ *  .ETI : seconds to mark via lay-line
+ */
+function calcLayLine(range, markAngle, TWA, BTV){
+	var hoursToSeconds = 3600;
+	var layLine = {};
+	var Q = Math.PI*(1- 2*TWA/180); // external tacking angle in rads
+	var MA = markAngle * Math.PI/180; // in rads
+	layLine.dist = range*Math.sin(Math.PI -(Q + MA))/Math.sin(Q); // Nm
+	var L2 = range*Math.sin(MA)/Math.sin(Q); //dist, nm along lay-line to mark
+	layLine.secondsToLayLine = layLine.dist /BTV*hoursToSeconds; //seconds 
+	layLine.ETI = (layLine.dist + L2)/BTV*hoursToSeconds; //millisecs  
+	return layLine;
+}
+function secondsToMinSecs( mSeconds){
+	 var isNeg = false;
+	 if (mSeconds <0){
+		 mSeconds *=-1;
+		 isNeg = true;
+	 }
+	  var roundSecs = Math.round(mSeconds);
+	  var Mins =  Math.floor(mSeconds/60);
+	  var remSecs = roundSecs - 60* Mins;
+	 return ((isNeg?"-":" ")+Mins + ":" + (remSecs<10?"0":"") + remSecs );
+}
+/*
+* reads the course with pebbleGetCourses and
+* sends it as text as appMessage #37
+*/
+function read_course(){
+	var url = WEB_HOST + "pebbleGetCourses.php"; // gets current course as formatted text string
+	var readCoursesRequest = new XMLHttpRequest(); 
+	readCoursesRequest.open("GET", url, true);
+	readCoursesRequest.send(null);
+	readCoursesRequest.onreadystatechange = function () {
+		  if (readCoursesRequest.readyState == 4 ){
+			   	if(readCoursesRequest.status == 200){ // or 404 not found	
+					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
+					Pebble.sendAppMessage({ 
+						"37": readCoursesRequest.responseText//formatted current course										   					   
+						  }, function(e) { //Success callback
+							  //Pebble.showSimpleNotificationOnPebble("CurrentCourse","Success"); 
+  						},
+  		function(e) { //Fail callback
+   			// Pebble.showSimpleNotificationOnPebble("CurrentCourse","Fail"); 
+  		}
+				);
+				}
+		  }
+	};
 }

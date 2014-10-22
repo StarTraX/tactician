@@ -5,6 +5,7 @@ extern char ** ans;
 	/* window structure */
 
 void init(){
+	
 	dashboard_init();
 	show_main_menu();
 }

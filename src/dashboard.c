@@ -4,6 +4,7 @@
 TextLayer *perfPcDisp, *gpsTime;
 
 char ** mAns;
+char * currentCourseText;
 int mLoopCounter=0;
 
 //static int dispCounter=0;
@@ -12,12 +13,21 @@ int mLoopCounter=0;
 	 //text_layer_set_text(perfPcDisp,"Dashboard" );
 	 Tuple *dataReceived =dict_read_first(iter);
 	 while (dataReceived != NULL){
-		 if( text_layer_get_layer(displayFields[dataReceived->key] ) != NULL ){ //check if the window hosting the text has been created
-			// if(window_is_loaded(layer_get_window(text_layer_get_layer(displayFields[dataReceived->key] )))) {//and the window is loaded				 
-				snprintf(mAns[dataReceived->key], 20,  " %s", dataReceived->value->cstring);
-				text_layer_set_text(displayFields[dataReceived->key],(mAns[dataReceived->key] ));		
-			//}
-		 }
+		 switch( dataReceived->key ) {
+			 case COURSE:
+				snprintf(currentCourseText, 300,  " %s", dataReceived->value->cstring);
+				break;
+			 default :
+				 snprintf(mAns[dataReceived->key], DISP_WIDTH,  " %s", dataReceived->value->cstring);
+				 if( text_layer_get_layer(displayFields[dataReceived->key] ) != NULL ){ //check if the window hosting the text has been created
+					// if(window_is_loaded(layer_get_window(text_layer_get_layer(displayFields[dataReceived->key] )))) {//and the window is loaded				 
+						//snprintf(mAns[dataReceived->key], 20,  " %s", dataReceived->value->cstring);
+						text_layer_set_text(displayFields[dataReceived->key],(mAns[dataReceived->key] ));	
+					  //APP_LOG(APP_LOG_LEVEL_DEBUG, mAns[dataReceived->key]);
+					//}
+				 }
+			 	break;
+		 } //switch
 		 dataReceived = dict_read_next(iter);
 	 }
 }
@@ -93,6 +103,7 @@ void build_app_msgs(){
 }
 
  void dashboard_init(){
+	 currentCourseText = malloc(sizeof(char)*300); //for current course display
 	APP_MSGS = malloc(sizeof(struct APP_MSG )*512); // store msgs and frq
 	s_res_gothic_28 = fonts_get_system_font(FONT_KEY_GOTHIC_28);	
 
