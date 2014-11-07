@@ -5,7 +5,7 @@
 #include <navigation_menu.h>
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_FIRST_MENU_ITEMS 3
+#define NUM_FIRST_MENU_ITEMS 2
 
 static Window *main_menu_window;
 
@@ -21,17 +21,17 @@ static SimpleMenuItem first_menu_items[NUM_FIRST_MENU_ITEMS];
 // You can capture when the user selects a menu icon with a menu item select callback
 static void menu_select_callback(int index, void *ctx) {
 	
-	if(index==0)
+	//if(index==0)
 		//scroll_window();
-		 window_root_init(); // start the tactician app here 
-	if(index==1)
+	//	 window_root_init(); // start the tactician app here 
+	if(index==0)
 		show_performance();
-	if(index==2)
+	if(index==1)
 		show_nav_menu();
 
 		
   // Here we just change the subtitle to a literal string
-  first_menu_items[index].subtitle = "You've hit select here!";
+  //first_menu_items[index].subtitle = "You've hit select here!";
   // Mark the layer to be updated
   layer_mark_dirty(simple_menu_layer_get_layer(simple_menu_layer));
 }
@@ -40,12 +40,14 @@ static void menu_select_callback(int index, void *ctx) {
 static void main_menu_window_load(Window *main_menu_window) {
   int num_a_items = 0;
 
-  // This is an example of how you'd set a simple menu item
+/*  // This is an example of how you'd set a simple menu item
   first_menu_items[num_a_items++] = (SimpleMenuItem){
     // You should give each menu item a title and callback
     .title = "Test display ",
+	.subtitle = "Racing performaqnce",
     .callback = menu_select_callback,
   };
+  */
   // The menu items appear in the order saved in the menu items array
   first_menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Performance",

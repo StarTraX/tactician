@@ -5,7 +5,9 @@ TextLayer *perfPcDisp, *gpsTime;
 
 char ** mAns;
 char * currentCourseText;
+char * coursesList;
 int mLoopCounter=0;
+int seriesCount = 6;
 
 //static int dispCounter=0;
  static void in_received_handler(DictionaryIterator *iter, void *context) {
@@ -15,8 +17,16 @@ int mLoopCounter=0;
 	 while (dataReceived != NULL){
 		 switch( dataReceived->key ) {
 			 case COURSE:
-				snprintf(currentCourseText, 300,  " %s", dataReceived->value->cstring);
+			 	currentCourseText = malloc(sizeof(char)*strlen(dataReceived->value->cstring)); //for current course display
+				snprintf(currentCourseText, strlen(dataReceived->value->cstring),  " %s", dataReceived->value->cstring);
+			 	//APP_LOG(APP_LOG_LEVEL_DEBUG,currentCourseText);
 				break;
+			 case SERIESLIST: // long list of | delimited series names
+				snprintf(coursesList, 300,  "%s", dataReceived->value->cstring);	
+			 	break;
+			 case SERIESCOUNT: 
+			 	seriesCount = dataReceived->value->uint32;
+				 break;
 			 default :
 				 snprintf(mAns[dataReceived->key], DISP_WIDTH,  " %s", dataReceived->value->cstring);
 				 if( text_layer_get_layer(displayFields[dataReceived->key] ) != NULL ){ //check if the window hosting the text has been created
@@ -103,7 +113,8 @@ void build_app_msgs(){
 }
 
  void dashboard_init(){
-	 currentCourseText = malloc(sizeof(char)*300); //for current course display
+	 
+	 coursesList= malloc(sizeof(char)*1000); //for delimited course list
 	APP_MSGS = malloc(sizeof(struct APP_MSG )*512); // store msgs and frq
 	s_res_gothic_28 = fonts_get_system_font(FONT_KEY_GOTHIC_28);	
 
@@ -123,7 +134,7 @@ void build_app_msgs(){
  	app_message_register_inbox_received(in_received_handler);
    app_message_register_inbox_dropped(in_dropped_handler);
 	 
-	const uint32_t inbound_size = 1024;
-	const uint32_t outbound_size = 1024;
+	const uint32_t inbound_size = app_message_inbox_size_maximum();
+	const uint32_t outbound_size = app_message_outbox_size_maximum();
    app_message_open(inbound_size, outbound_size);
 }

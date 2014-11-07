@@ -5,7 +5,7 @@
 #include "nav_next_leg.h"
 #include "nav_current_course.h"
 	
-
+static int num_a_items =0;
 static Window *nav_menu_window;
 
 // This is a simple menu layer
@@ -28,12 +28,12 @@ static void nav_menu_select_callback(int index, void *ctx) {
 	if(index==3)
 		show_nav_course(); //current course
 		
-  layer_mark_dirty(simple_menu_layer_get_layer(nav_menu_layer));
+  //layer_mark_dirty(simple_menu_layer_get_layer(nav_menu_layer));
 }
 
 // This initializes the menu upon window load
 static void nav_menu_window_load(Window *nav_menu_window) {
-  int num_a_items = 0;
+  num_a_items = 0;
 
   // This is an example of how you'd set a simple menu item
  nav_menu_items[num_a_items++] = (SimpleMenuItem){

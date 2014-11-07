@@ -1,7 +1,7 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
 Pebble.addEventListener("ready",
   function(e) {
-	 Pebble.showSimpleNotificationOnPebble("DEBUG","javascript initiated");
+	 //Pebble.showSimpleNotificationOnPebble("DEBUG","javascript initiated");
 	   readPolars(); //this can be done befoew watch is ready
 	  //readNavData();
 	  read_course();
@@ -12,8 +12,8 @@ Pebble.addEventListener("ready",
 
 var polars;
 //var WEB_HOST = "http://192.168.0.6:8080/dev/";	
-//var WEB_HOST = "http://192.168.43.1:8080/dev/";
-var WEB_HOST = "http://localhost:8080/dev/";
+var WEB_HOST = "http://192.168.43.1:8080/dev/";
+//var WEB_HOST = "http://localhost:8080/dev/";
 
 var readPolarsRequest = new XMLHttpRequest(); //for read Polars data
 var polars = [];
@@ -432,11 +432,13 @@ function dispData(JSONcombinedData){
    			//Pebble.showSimpleNotificationOnPebble("Nack Message",  e.error.message);
   		}
 	);	
-
-	for (var prevValuesIdx in prevValues) // update previous values
+	
+	for (var prevValuesIdx in prevValues) {// update previous values
 		prevValues[prevValuesIdx] = dampedValues[prevValuesIdx];
+	}
+//Pebble.showSimpleNotificationOnPebble("JS ERROR",  "LINE 439");
 
-}
+} //dispData(JSONcombinedData)
 
 function calcTargets(){ //return TWA (Rads) and BTV (m/s) for current dampedValues.TWS and STYLE
 	var target = {};
@@ -565,12 +567,13 @@ function secondsToMinSecs( mSeconds){
 	  var remSecs = roundSecs - 60* Mins;
 	 return ((isNeg?"-":" ")+Mins + ":" + (remSecs<10?"0":"") + remSecs );
 }
+var courses; // the BIG clubs/series/...object
 /*
 * reads the course with pebbleGetCourses and
 * sends it as text as appMessage #37
 */
 function read_course(){
-	var url = WEB_HOST + "pebbleGetCourses.php"; // gets current course as formatted text string
+	var url = WEB_HOST + "pebbleGetCourses.php?print_division"; // gets current course as formatted text string
 	var readCoursesRequest = new XMLHttpRequest(); 
 	readCoursesRequest.open("GET", url, true);
 	readCoursesRequest.send(null);
@@ -583,11 +586,70 @@ function read_course(){
 						  }, function(e) { //Success callback
 							  //Pebble.showSimpleNotificationOnPebble("CurrentCourse","Success"); 
   						},
-  		function(e) { //Fail callback
-   			// Pebble.showSimpleNotificationOnPebble("CurrentCourse","Fail"); 
-  		}
+						function(e) { //Fail callback
+							 //Pebble.showSimpleNotificationOnPebble("CurrentCourse","Fail"); 
+						}
 				);
-				}
-		  }
+			}
+		 }
 	};
+	/*
+	* get current course json object: this contains the current course's Series and Course number, mark locations, dist and headings
+	* but only send  the  Series and Course number and wind
+	*/	
+	url = WEB_HOST + "pebbleGetCourses.php?get_all_courses"; 
+	var get_current_courseRequest = new XMLHttpRequest(); 
+	get_current_courseRequest.open("GET", url, true);	
+	get_current_courseRequest.send(null);
+	get_current_courseRequest.onreadystatechange = function () {
+		  if (get_current_courseRequest.readyState == 4 ){
+			   	if(get_current_courseRequest.status == 200){ // or 404 not found	
+					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
+					courses = JSON.parse(get_current_courseRequest.responseText); 
+					var RPAYClubSeries = courses.clubs[0].series;
+					var mSeriesList = "";
+					for (var seriesIdx in RPAYClubSeries){
+						mSeriesList += RPAYClubSeries[seriesIdx].name + "|";
+					}	
+					seriesIdx++;
+					Pebble.sendAppMessage({ 
+						"40": mSeriesList, //SERIESLIST
+						"41": seriesIdx, //SERIESCOUNT force to numeric
+						  }, function(e) { //Success callback
+							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 
+  						},
+						function(e) { //Fail callback
+							 //Pebble.showSimpleNotificationOnPebble("get_current_course","Fail"); 
+						}
+					);
+			}
+		 }
+	};
+	
+	/*
+	* get the whole courses object for this club
+	*/
+	url = WEB_HOST + "pebbleGetCourses.php?get_current_course"; 
+	var get_all_coursesRequest = new XMLHttpRequest(); 
+	get_all_coursesRequest.open("GET", url, true);	
+	get_all_coursesRequest.send(null);
+	get_all_coursesRequest.onreadystatechange = function () {
+		  if (get_all_coursesRequest.readyState == 4 ){
+			   	if(get_all_coursesRequest.status == 200){ // or 404 not found	
+					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
+					var currentCourse = JSON.parse(get_all_coursesRequest.responseText);
+					Pebble.sendAppMessage({ 
+						"38": currentCourse.series,
+						"39": currentCourse.course +" " + currentCourse.wind +" "+ currentCourse.name ,
+						  }, function(e) { //Success callback
+							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 
+  						},
+						function(e) { //Fail callback
+							 //Pebble.showSimpleNotificationOnPebble("get_current_course","Fail"); 
+						}
+					);
+			}
+		 }
+	};									  
+										  
 }

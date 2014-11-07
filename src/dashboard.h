@@ -40,15 +40,18 @@ enum  { //to manage the display fields
 	CURRENTSPEED, //34
 	CURRENTDIR, //35
 	CURRENTEFFECT, //36
-	COURSE, //37
-filler,
-
-	numberOfDisplays, //count of the number of displays
-	
+	COURSE, //37 formatted text of the marks of the course
+	SERIESNAME, //38 name of the race series
+	COURSENAME, //39 name of the course
+	SERIESLIST, //40 delimited list of series names 
+	SERIESCOUNT, //41 count of number of series in this club
+	numberOfDisplays, //count of the number of displays	
 };
 TextLayer * displayFields[numberOfDisplays];
 char ** mAns;
 char * currentCourseText;
+char * coursesList;
 GFont s_res_gothic_28;
 int rowIndex;
 int rowSpace;
+int seriesCount; //count of number of series in Club
