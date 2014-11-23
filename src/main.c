@@ -1,19 +1,20 @@
 #include <pebble.h>
-	#include <main_menu.h>
+	#include "main_menu.h"
 	#include "dashboard.h"
-	#include "atest.h"
+	#include "aSplash.h"
 extern char ** ans;	
 	/* window structure */
 
 void init(){
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "Calling atest");
-	dashboard_init();
-	atest();
-	show_main_menu();
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Calling atest");
+
+	//atest();
+	//show_main_menu();
 
 	
 }
 int main(void) {
-	init();
+	dashboard_init();
+	show_splash();
   app_event_loop();
 }

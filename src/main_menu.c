@@ -52,7 +52,7 @@ static void main_menu_window_load(Window *main_menu_window) {
   first_menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Performance",
     // You can also give menu items a subtitle
-    .subtitle = "Racing performaqnce",
+    .subtitle = "Racing performance",
     .callback = menu_select_callback,
   };
   first_menu_items[num_a_items++] = (SimpleMenuItem){

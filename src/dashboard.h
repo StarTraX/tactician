@@ -45,13 +45,19 @@ enum  { //to manage the display fields
 	COURSENAME, //39 name of the course
 	SERIESLIST, //40 delimited list of series names 
 	SERIESCOUNT, //41 count of number of series in this club
+	COURSEDIVSCOUNT, // 42 number of course divisions in this series
+	COURSEDIVS, //43 the | and : separated list of divs
+	FLAGDATALOADED, //44 when data loaded, start the watchapp
 	numberOfDisplays, //count of the number of displays	
 };
 TextLayer * displayFields[numberOfDisplays];
 char ** mAns;
 char * currentCourseText;
-char * coursesList;
+char * courseDivsText;
+char * seriesList;
 GFont s_res_gothic_28;
 int rowIndex;
 int rowSpace;
 int seriesCount; //count of number of series in Club
+int courseDivsCount ; //count of course divs in this series
+void send_to_phone();

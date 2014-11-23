@@ -2,6 +2,7 @@
 #include "nav_courses_menu.h"
 #include "dashboard.h"
 #include "nav_series_menu.h"
+#include "nav_course_div_menu.h"
 static Window *mWindow;
 static SimpleMenuLayer *menu_layer;
 static SimpleMenuSection menu_sections[1];
@@ -11,8 +12,8 @@ static SimpleMenuItem menu_items[2];
 static void nav_menu_select_callback(int index, void *ctx) {	
 	if(index==0)
 		show_nav_series_menu();
-	//if(index==1)
-		//show_nav_courses_menu();
+	if(index==1)
+		show_nav_divs_menu();
 }
 
 // This initializes the menu upon window load
@@ -49,6 +50,7 @@ static void nav_courses_menu_window_load(Window *m_window) {
 }
 
 void nav_courses_menu_window_unload(Window *mWindow) {// Deinitialize resources on window unload that were initialized on window load
+	window_destroy(mWindow);
   simple_menu_layer_destroy(menu_layer);
 }
 

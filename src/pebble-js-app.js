@@ -1,19 +1,53 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
-Pebble.addEventListener("ready",
-  function(e) {
-	 //Pebble.showSimpleNotificationOnPebble("DEBUG","javascript initiated");
-	   readPolars(); //this can be done befoew watch is ready
-	  //readNavData();
-	  read_course();
-	 commsTimer(); //start the timer
- 
-  }// eventListener callback
-); //addEventListener
-
-var polars;
-//var WEB_HOST = "http://192.168.0.6:8080/dev/";	
-var WEB_HOST = "http://192.168.43.1:8080/dev/";
+var WEB_HOST = "http://192.168.0.6:8080/dev/";	
+//var WEB_HOST = "http://192.168.43.1:8080/dev/";
 //var WEB_HOST = "http://localhost:8080/dev/";
+Pebble.addEventListener("showConfiguration",
+  function(e) {
+	var pebbleConfigURL = WEB_HOST+"pebbleConfig.php";
+	Pebble.openURL(pebbleConfigURL);
+	}
+); //addEventListener showConfiguration
+var settings = {};	
+Pebble.addEventListener('webviewclosed',
+					
+  function(e) {
+	  console.log('webviewclosed' + e.response);
+	  if (e.response != "cancel"){
+		settings = e.response; // it's assumed to be a JSON object
+		readCookies(); // from tactician web server (phone) with php
+	  	readPolars(); //this can be done before watch is ready
+	  	read_course();
+	  }
+    //Pebble.showSimpleNotificationOnPebble('Configuration window returned: ');
+  }
+);
+Pebble.addEventListener("ready",
+  function(e) {	 
+	  /*DEBUG send to phone*/
+	  // Pebble.showSimpleNotificationOnPebble("Data loading","Please wait for \"Data Loaded\". "+
+		//								  " If long delay, restart Tactician.");
+	  readCookies(); // from tactician web server (phone) with php
+	  readPolars(); //this can be done before watch is ready
+	  read_course();
+	  
+
+  }// eventListener callback
+);//addEventListener ready
+
+Pebble.addEventListener("appmessage",
+	 function(e) {
+		 console.log("Received app message: "+ e.payload["101"]);
+
+		for (var msg in e.payload ){
+			console.log("payload: "+msg + ":" + e.payload[msg]);
+		}
+	 }
+);
+
+
+var httpFlags = 0; //1: polars, 2, division, 4:all course, 8: current course
+var polars;
 
 var readPolarsRequest = new XMLHttpRequest(); //for read Polars data
 var polars = [];
@@ -47,10 +81,11 @@ function readPolars(){
 	 					targetDownwindSpeeds = polars[3];
 	 					targetMinTwaForKite = polars[4];
 						
-					}// length > 0						
+					}// length > 0	
+					testHttpFlags(1);
 				}//status == 200
-			  	//else 
-				 // Pebble.showSimpleNotificationOnPebble("readNavDataRequest.status",readPolarsRequest.status);
+			  	else 
+				  Pebble.showSimpleNotificationOnPebble("HTTP Fail(1)","Check your web server is running");
 			} //readyState == 4
 
 		   }; //onreadystatechange 		
@@ -79,7 +114,7 @@ var navDataCount = 0;
 var styleRates = [0, 90, 83, 75];
 var STYLE=2 ; 
 var knotsToMps = 0.5144444; // convert knots to metres/sec
-var LOCAL_MAG_VAR = 12.5; 
+var LOCAL_MAG_VAR ;  //set from settings.magVar (cookie)
 //var YACHT_LENGTH = 12.4; 
 //var GPS_BEHIND_BOW = 6; 
 
@@ -100,7 +135,7 @@ function commsTimer(){
 			lastPolledTimeStamp = commsTimerTimeStamp;
 			readNavData();
 		}		
-	setTimeout("commsTimer()",500); 
+	setTimeout(function(){commsTimer();},1000); 
 }
 
 function readNavData(){
@@ -573,6 +608,11 @@ var courses; // the BIG clubs/series/...object
 * sends it as text as appMessage #37
 */
 function read_course(){
+	print_division();
+	get_all_courses();
+	
+}
+function print_division(){
 	var url = WEB_HOST + "pebbleGetCourses.php?print_division"; // gets current course as formatted text string
 	var readCoursesRequest = new XMLHttpRequest(); 
 	readCoursesRequest.open("GET", url, true);
@@ -581,75 +621,212 @@ function read_course(){
 		  if (readCoursesRequest.readyState == 4 ){
 			   	if(readCoursesRequest.status == 200){ // or 404 not found	
 					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
-					Pebble.sendAppMessage({ 
-						"37": readCoursesRequest.responseText//formatted current course										   					   
-						  }, function(e) { //Success callback
-							  //Pebble.showSimpleNotificationOnPebble("CurrentCourse","Success"); 
-  						},
-						function(e) { //Fail callback
-							 //Pebble.showSimpleNotificationOnPebble("CurrentCourse","Fail"); 
-						}
-				);
-			}
-		 }
-	};
+					 upload_division(readCoursesRequest.responseText);
+					testHttpFlags(2);
+				}
+				else
+			Pebble.showSimpleNotificationOnPebble("HTTP Fail(2)", "Check that your web server is running"); 	
+		  }
+		};
+}
+function upload_division(mText){
+	Pebble.sendAppMessage({ 
+		"37": mText//formatted current course										   					   
+		}, function(e) { //Success callback
+			testHttpFlags(5);
+			 //Pebble.showSimpleNotificationOnPebble("CurrentCourse","Success"); 							  
+		},
+		function(e) { //Fail callback	
+			//Pebble.showSimpleNotificationOnPebble("Upload (5) failed, retrying:","print division"); 
+			setTimeout(function(){print_division();},1000);
+		}
+	);
+}
+function get_all_courses(){
 	/*
-	* get current course json object: this contains the current course's Series and Course number, mark locations, dist and headings
-	* but only send  the  Series and Course number and wind
-	*/	
-	url = WEB_HOST + "pebbleGetCourses.php?get_all_courses"; 
+	* get the whole courses object for this club
+	*/
+	var url = WEB_HOST + "pebbleGetCourses.php?get_all_courses"; 
 	var get_current_courseRequest = new XMLHttpRequest(); 
 	get_current_courseRequest.open("GET", url, true);	
 	get_current_courseRequest.send(null);
 	get_current_courseRequest.onreadystatechange = function () {
 		  if (get_current_courseRequest.readyState == 4 ){
 			   	if(get_current_courseRequest.status == 200){ // or 404 not found	
-					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
+					//Pebble.showSimpleNotificationOnPebble("get_all_courses", readCoursesRequest.responseText);
 					courses = JSON.parse(get_current_courseRequest.responseText); 
-					var RPAYClubSeries = courses.clubs[0].series;
+					var currentSeries = courses.clubs[settings.clubIdx].series;
 					var mSeriesList = "";
-					for (var seriesIdx in RPAYClubSeries){
-						mSeriesList += RPAYClubSeries[seriesIdx].name + "|";
+					for (var seriesIdx in currentSeries){
+						mSeriesList += currentSeries[seriesIdx].name + "|";
 					}	
-					seriesIdx++;
-					Pebble.sendAppMessage({ 
+					seriesIdx = Number(seriesIdx)+1;
+					testHttpFlags(3);
+					upload_all_courses(mSeriesList,seriesIdx );
+					get_current_course();
+				}
+				else
+					Pebble.showSimpleNotificationOnPebble("HTTP Fail(3)", "Check that your web server is running");
+		 	}
+		};
+}
+function upload_all_courses(mSeriesList,seriesIdx ){
+						Pebble.sendAppMessage({ 
 						"40": mSeriesList, //SERIESLIST
 						"41": seriesIdx, //SERIESCOUNT force to numeric
 						  }, function(e) { //Success callback
-							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 
+							  testHttpFlags(6);
+							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 							 
   						},
 						function(e) { //Fail callback
-							 //Pebble.showSimpleNotificationOnPebble("get_current_course","Fail"); 
+							//Pebble.showSimpleNotificationOnPebble("Upload (6)failed, retrying: ","get_all_courses"); 
+							setTimeout(function(){upload_all_courses(mSeriesList,seriesIdx);},1000);
 						}
 					);
-			}
-		 }
-	};
-	
+}
 	/*
-	* get the whole courses object for this club
-	*/
-	url = WEB_HOST + "pebbleGetCourses.php?get_current_course"; 
+	* get current course json object: this contains the current course's Series and Course number, mark locations, dist and headings
+	* but only send  the  Series and Course number and wind
+	*/	
+var currentCourse;
+function get_current_course(){
+	var url = WEB_HOST + "pebbleGetCourses.php?get_current_course"; 
 	var get_all_coursesRequest = new XMLHttpRequest(); 
 	get_all_coursesRequest.open("GET", url, true);	
 	get_all_coursesRequest.send(null);
 	get_all_coursesRequest.onreadystatechange = function () {
 		  if (get_all_coursesRequest.readyState == 4 ){
 			   	if(get_all_coursesRequest.status == 200){ // or 404 not found	
-					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
-					var currentCourse = JSON.parse(get_all_coursesRequest.responseText);
-					Pebble.sendAppMessage({ 
-						"38": currentCourse.series,
-						"39": currentCourse.course +" " + currentCourse.wind +" "+ currentCourse.name ,
-						  }, function(e) { //Success callback
-							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 
-  						},
-						function(e) { //Fail callback
-							 //Pebble.showSimpleNotificationOnPebble("get_current_course","Fail"); 
-						}
-					);
-			}
+					 currentCourse = JSON.parse(get_all_coursesRequest.responseText);
+					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", currentCourse.series);
+					upload_current_course();
+				}
+			  else
+				  Pebble.showSimpleNotificationOnPebble("HTTP Fail(4)", "Check that your web server is running"); 
+				  setTimeout(function(){get_current_course();},1000);
 		 }
 	};									  
 										  
 }
+function upload_current_course(){
+	Pebble.sendAppMessage({ 
+						"38": currentCourse.series, //SERIESNAME
+						"39": currentCourse.course +" " + currentCourse.wind +" "+ currentCourse.name ,
+						  }, function(e) { //Success callback	
+							  testHttpFlags(7);
+							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 
+  						},
+						function(e) { //Fail callback
+							//Pebble.showSimpleNotificationOnPebble("Upload (7) failed, retrying:","get_current_course"); 						
+							setTimeout(function(){upload_current_course();},1000);
+						}
+					);
+					populateDivsFromSeries(); //populate div/course list
+					 testHttpFlags(4);
+}
+/* extract the division/courses for the current series
+from the courses object  
+*/
+function populateDivsFromSeries() { //modelled on getSeriesFromSelect
+	
+	var thisSeriesObj = courses.clubs[settings.clubIdx].series[currentCourse.seriesIdx].courses; //
+	var courseDivsList = "";
+	var courseDivCount = 0;
+	for (var courseIdx in thisSeriesObj){
+		var thisCourse = thisSeriesObj[courseIdx];
+		for (var divisionIdx in thisCourse.divisions){
+			courseDivCount ++;
+			var selectedDivision = thisCourse.divisions[divisionIdx];
+			courseDivsList += thisCourse.number+" "+ selectedDivision.name + " "+ thisCourse.wind +"|"+
+				courseIdx +"|"+ divisionIdx +":";  // | delimited within : delimited		
+		}
+	}
+	uploadDivs(courseDivCount,courseDivsList );
+}
+function uploadDivs(courseDivCount,courseDivsList ){
+	// Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
+	Pebble.sendAppMessage({ 
+		"42": courseDivCount, //	COURSEDIVSCOUNT, // 42 number of course divisions in this series
+		"43": courseDivsList ,// COURSEDIVS, //43 the | and : separated list of divs
+		 }, function(e) { //Success callback
+				 testHttpFlags(8);
+				  //Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
+  						},
+			function(e) { //Fail callback
+				//console.log('sendAppMessage courseDivCount:'+courseDivCount + " courseDivsList: "+ courseDivsList);
+				//Pebble.showSimpleNotificationOnPebble("Upload (8) failed, retrying: ","current course menu"); 						
+				setTimeout(function(){uploadDivs(courseDivCount,courseDivsList );},1000);
+				}
+	);	
+}
+
+function  readCookies(){ //cookies established in Pebble Configuration/Settings
+	var url = WEB_HOST + "pebbleGetCookies.php"; 
+	var get_cookiesRequest = new XMLHttpRequest(); 
+	get_cookiesRequest.open("GET", url, true);	
+	get_cookiesRequest.send(null);
+	get_cookiesRequest.onreadystatechange = function () {
+		  if (get_cookiesRequest.readyState == 4 ){
+			   	if(get_cookiesRequest.status == 200){ // or 404 not found	
+					//Pebble.showSimpleNotificationOnPebble("get_cookiesRequest", get_cookiesRequest.responseText);				
+					settings = JSON.parse(get_cookiesRequest.responseText);
+					 testHttpFlags(9);
+				}
+			  else
+				   Pebble.showSimpleNotificationOnPebble("HTTP Fail(9)", "Check that your web server is running"); 
+		 }
+	};		
+}
+/*
+flags for loading data from Logger via HTTP
+*/
+function testHttpFlags(flag){
+	var mask=Math.pow(2,(flag-1));
+	httpFlags = httpFlags | mask;
+	if (httpFlags==511){
+		httpFlags=0; //ready for the configuration
+		var settingsText  = "Club: ";
+		if (settings.clubIdx === undefined)
+			settings.clubIdx=0;
+		settingsText +=  courses.clubs[settings.clubIdx].name;			
+		settingsText  += "\nSeries: ";
+		if (settings.seriesIdx === undefined)
+			settings.seriesIdx = 0;
+		settingsText +=  courses.clubs[settings.clubIdx].series[settings.seriesIdx].name;			
+		settingsText  += "\nDivision: ";
+		if (settings.divIdx === undefined)
+			settings.divIdx = 0;
+		if (settings.divIdx !== 0)
+			settingsText += courses.clubs[settings.clubIdx]
+				.series[settings.seriesIdx]
+				.courses[0].divisions[settings.divIdx].name;					
+		settingsText  += "\nMag Var'n: ";
+		if (settings.magVar === undefined)
+			settings.magVar=0;
+		settingsText +=  settings.magVar;			
+		LOCAL_MAG_VAR = settings.magVar;
+		//console.log('testHttpFlags' + flag);
+		//Pebble.showSimpleNotificationOnPebble("Data loaded:",settingsText); 
+		flagDataLoaded();
+
+	}
+	//else 
+		//Pebble.showSimpleNotificationOnPebble("Server progress:","Flag: "+flag + "flags: "+httpFlags); 
+}
+function flagDataLoaded( ){
+	// Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
+	Pebble.sendAppMessage({ 
+		"44": "0", //	COURSEDIVSCOUNT, // 42 number of course divisions in this series
+		 }, function(e) { //Success callback
+				 //testHttpFlags(8);
+			 		commsTimer(); //start the timer once all the data is loaded
+				  //Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
+  						},
+			function(e) { //Fail callback
+				//console.log('sendAppMessage courseDivCount:'+courseDivCount + " courseDivsList: "+ courseDivsList);
+				//Pebble.showSimpleNotificationOnPebble("Upload (8) failed, retrying: ","current course menu"); 						
+				setTimeout(function(){flagDataLoaded();},1000);
+				}
+	);	
+}
+ 
