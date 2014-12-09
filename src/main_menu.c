@@ -1,55 +1,48 @@
 #include <pebble.h>
 #include <main_menu.h>
-#include <tactician.h>
 #include <performance.h>
 #include <navigation_menu.h>
+#include <start_menu.h>
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_FIRST_MENU_ITEMS 2
+#define NUM_FIRST_MENU_ITEMS 3
 
 static Window *main_menu_window;
 
-// This is a simple menu layer
 static SimpleMenuLayer *simple_menu_layer;
 
-// A simple menu layer can have multiple sections
 static SimpleMenuSection menu_sections[NUM_MENU_SECTIONS];
 
-// Each section is composed of a number of menu items
 static SimpleMenuItem first_menu_items[NUM_FIRST_MENU_ITEMS];
 
-// You can capture when the user selects a menu icon with a menu item select callback
 static void menu_select_callback(int index, void *ctx) {
-	
-	//if(index==0)
-		//scroll_window();
-	//	 window_root_init(); // start the tactician app here 
-	if(index==0)
-		show_performance();
-	if(index==1)
-		show_nav_menu();
 
-		
-  // Here we just change the subtitle to a literal string
-  //first_menu_items[index].subtitle = "You've hit select here!";
+	if(index==0){
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Starting");
+		show_start_menu();
+	}
+	if(index==1){
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Performance");
+		show_performance();
+	}
+	if(index==2){
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Navigation");
+		show_nav_menu();
+	}
   // Mark the layer to be updated
-  layer_mark_dirty(simple_menu_layer_get_layer(simple_menu_layer));
+  //layer_mark_dirty(simple_menu_layer_get_layer(simple_menu_layer));
 }
 
-// This initializes the menu upon window load
 static void main_menu_window_load(Window *main_menu_window) {
   int num_a_items = 0;
 
-/*  // This is an example of how you'd set a simple menu item
-  first_menu_items[num_a_items++] = (SimpleMenuItem){
-    // You should give each menu item a title and callback
-    .title = "Test display ",
-	.subtitle = "Racing performaqnce",
+  // The menu items appear in the order saved in the menu items array
+   first_menu_items[num_a_items++] = (SimpleMenuItem){
+    .title = "Starting",
+    .subtitle = "Start Line, Timer, Plan",
     .callback = menu_select_callback,
   };
-  */
-  // The menu items appear in the order saved in the menu items array
-  first_menu_items[num_a_items++] = (SimpleMenuItem){
+ first_menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Performance",
     // You can also give menu items a subtitle
     .subtitle = "Racing performance",
@@ -59,12 +52,8 @@ static void main_menu_window_load(Window *main_menu_window) {
     .title = "Navigation",
     .subtitle = "Course, marks, position",
     .callback = menu_select_callback,
-
   };
-
- 
-
-  // Bind the menu items to the corresponding menu sections
+// Bind the menu items to the corresponding menu sections
   menu_sections[0] = (SimpleMenuSection){
 	  .title = "StarTraX Tactician",
     .num_items = NUM_FIRST_MENU_ITEMS,
@@ -90,6 +79,12 @@ void main_menu_window_unload(Window *main_menu_window) {// Deinitialize resource
   simple_menu_layer_destroy(simple_menu_layer);
 }
 
+char  Msg[100];
+void handle_main_menu_appear(){
+	snprintf(Msg, 100,  "Heap free: %d ", heap_bytes_free());
+ 	APP_LOG(APP_LOG_LEVEL_INFO, Msg);
+}
+
  void show_main_menu(){
   main_menu_window = window_create();
 
@@ -97,6 +92,7 @@ void main_menu_window_unload(Window *main_menu_window) {// Deinitialize resource
   window_set_window_handlers(main_menu_window, (WindowHandlers) {
     .load = main_menu_window_load,
     .unload = main_menu_window_unload,
+	.appear = handle_main_menu_appear,
   });
 		 window_stack_push(main_menu_window, true /* Animated */);
 }

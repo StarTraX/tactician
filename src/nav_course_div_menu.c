@@ -9,20 +9,22 @@
  SimpleMenuItem * menu_items;
 static int num_a_items = 0;
 char ** dispCourseDiv;
-// You can capture when the user selects a menu icon with a menu item select callback
-
+void nav_divs_menu_window_unload(Window *mWindow) {// Deinitialize resources on window unload that were initialized on window load
+  simple_menu_layer_destroy(menu_layer);
+	window_destroy(mWindow);
+	free(menu_items);
+}
 static void nav_divs_select_callback(int index, void *ctx) {	
-		 //learn 
- 	send_to_phone();
-	//if(index==0)
-	//	show_
-	//if(index==1)
-		//show_
+ 	send_to_phone( TupletInteger(101, index)); //index maps to courseIdx!
+	window_stack_pop(true); //close this window (course menu)
+	window_stack_pop(true); //close prev window current Course)
+	window_stack_pop(true); //close  navigation menu
+
 }
 static void nav_divs_menu_window_load(Window *m_window) {
 	char  Msg[100];
-	snprintf(Msg, 100,  "Heap free: %d", heap_bytes_free());
- 	APP_LOG(APP_LOG_LEVEL_INFO, Msg);
+	//snprintf(Msg, 100,  "Heap free: %d", heap_bytes_free());
+ 	//APP_LOG(APP_LOG_LEVEL_INFO, Msg);
 	num_a_items =0; 
 	char* new_str = malloc(sizeof(char)*1000); //because mstrtok alters its subject 
 	strcpy(new_str,courseDivsText);
@@ -41,9 +43,8 @@ static void nav_divs_menu_window_load(Window *m_window) {
 	char * divsOption  = mstrtok (new_str, ":");  // split by ";"" for divs and "|" for internal fields
 	while (divsOption != NULL){	
 		strcpy(newDivString,divsOption);
-		courseDivToken = m2strtok (newDivString, "|");  // split by  "|" for internalNumber, Div, Wind, co urseIdx, divIdx
-		//courseIdx = m2strtok (NULL, "|");
-		//divIdx= m2strtok (NULL, "|");
+		courseDivToken = m2strtok (newDivString, "|");  // split by  "|" for internal Number Wind, | courseIdx
+		//courseIdx = m2strtok (NULL, "|"); // second strtok2 yeilds courseIdx
 		snprintf(dispCourseDiv[num_a_items], disp_width,  "%s", courseDivToken);
 		//APP_LOG(APP_LOG_LEVEL_DEBUG, dispCourseDiv[num_a_items]);
 
@@ -67,6 +68,7 @@ static void nav_divs_menu_window_load(Window *m_window) {
 	//snprintf(Msg, 100,  "Free (dispCourseDiv[0] %d",(int) dispCourseDiv[5]);
 	// APP_LOG(APP_LOG_LEVEL_DEBUG, Msg);
 	free(dispCourseDiv[0]);
+	//free(dispCourseDiv[1]);  Nope, won't work
 	//snprintf(Msg, 100,  "Free (dispCourseDiv %d",(int) dispCourseDiv);
 	// APP_LOG(APP_LOG_LEVEL_DEBUG, Msg);
 	free(dispCourseDiv);
@@ -84,17 +86,7 @@ static void nav_divs_menu_window_load(Window *m_window) {
   	layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
 }
 
-void nav_divs_menu_window_unload(Window *mWindow) {// Deinitialize resources on window unload that were initialized on window load
-  simple_menu_layer_destroy(menu_layer);
-	/*
-	for (int i =courseDivsCount-1; i >=0 ; i-- ){	  
-	  	free(dispCourseDiv[i] );
-	}
-	*/
-	window_destroy(mWindow);
-	free(menu_items);
 
-}
 
  void show_nav_divs_menu(){
  mWindow = window_create();
@@ -106,6 +98,3 @@ void nav_divs_menu_window_unload(Window *mWindow) {// Deinitialize resources on 
   });
 		 window_stack_push(mWindow, true /* Animated */);
 }
-
-
-

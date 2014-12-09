@@ -1,7 +1,8 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
-var WEB_HOST = "http://192.168.0.6:8080/dev/";	
+//var WEB_HOST = "http://192.168.0.6:8080/dev/";	
 //var WEB_HOST = "http://192.168.43.1:8080/dev/";
-//var WEB_HOST = "http://localhost:8080/dev/";
+var WEB_HOST = "http://localhost:8080/dev/";
+var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
 Pebble.addEventListener("showConfiguration",
   function(e) {
 	var pebbleConfigURL = WEB_HOST+"pebbleConfig.php";
@@ -12,12 +13,10 @@ var settings = {};
 Pebble.addEventListener('webviewclosed',
 					
   function(e) {
-	  console.log('webviewclosed' + e.response);
+	  //console.log('webviewclosed' + e.response);
 	  if (e.response != "cancel"){
 		settings = e.response; // it's assumed to be a JSON object
-		readCookies(); // from tactician web server (phone) with php
-	  	readPolars(); //this can be done before watch is ready
-	  	read_course();
+	  	load_data();	  
 	  }
     //Pebble.showSimpleNotificationOnPebble('Configuration window returned: ');
   }
@@ -27,24 +26,101 @@ Pebble.addEventListener("ready",
 	  /*DEBUG send to phone*/
 	  // Pebble.showSimpleNotificationOnPebble("Data loading","Please wait for \"Data Loaded\". "+
 		//								  " If long delay, restart Tactician.");
-	  readCookies(); // from tactician web server (phone) with php
-	  readPolars(); //this can be done before watch is ready
-	  read_course();
-	  
+	  load_data();	  
 
   }// eventListener callback
 );//addEventListener ready
-
-Pebble.addEventListener("appmessage",
+var selectedWindow, presentPosData, startLinePoints;
+Pebble.addEventListener("appmessage",						
 	 function(e) {
-		 console.log("Received app message: "+ e.payload["101"]);
+		 var mURL;
+		 var mRequest = new XMLHttpRequest(); 
+		for (var msgIdx in e.payload ){
+			if (msgIdx == 100){ // selected WINDOW 
+				selectedWindow = e.payload[msgIdx];
+				console.log("received: "+selectedWindow);
+			}
+			if (msgIdx == 101){// selected course
+			set_course(e.payload[msgIdx]);
+			}
+			else if (msgIdx == 102){// from next_mark window
+				
+				if ( e.payload[msgIdx] === 0){
+					console.log("Next_mark : manual start");
+					mURL =  WEB_HOST + "startNav.php";
+					mRequest = new XMLHttpRequest(); //for navStart.php
+					mRequest.open("GET", mURL, true); 
+					mRequest.send(null);
+					mRequest.onreadystatechange = function () {
+						  if (mRequest.readyState == 4 && mRequest.status == 200 ){
+							//var resp = mRequest.responseText;	
+							//   console.log ("startNav.php: Nav started with "+resp);
+						   } // if readyState == 4
+					}; //onreadystatechange
+				}
+				else {
+					mURL =  WEB_HOST + "markFwdBack.php?indicator="+e.payload[msgIdx];
+					mRequest.open("GET", mURL, true); 
+					mRequest.send(null);	
+					mRequest.onreadystatechange = function () {
+							if (mRequest.readyState == 4 && mRequest.status == 200 ){
+							//var resp = mRequest.responseText;	
+							  //console.log ("markFwdBack.php: with "+  e.payload[msgIdx] + " returned with "+resp);
+						   } // if readyState == 4
 
-		for (var msg in e.payload ){
-			console.log("payload: "+msg + ":" + e.payload[msg]);
+						}; //onreadystatechange	
+				}
+			}
+			else if (msgIdx == 103){// from start_line
+				//console.log ("start_line  with "+  e.payload[msgIdx] );
+				mURL = WEB_HOST +"startLinePress.php?whichEnd="+  e.payload[msgIdx]; // Updates & gets location data string
+				mRequest.open("GET", mURL, true);
+				mRequest.send(null);
+				mRequest.onreadystatechange = function () {
+					if (mRequest.readyState == 4 ){
+						if(mRequest.status == 200){
+							//startLinePressResponse(startLineRequest.responseText);		   		
+						} // if status == 200
+					} // if readyState == 4
+				}; //onreadystatechange
+				if (e.payload[msgIdx] == "BOAT") print_division();  //refresh course wirh new start line (bot)
+			}
+			else if (msgIdx == 104){// Start time 10, 5, 4 mins, as minutes
+				console.log ("presentPosData.timeMs: "  + presentPosData.timeMs + "Number:" + Number(presentPosData.timeMs) ) ;
+				startTime = Number(presentPosData.timeMs) + Number(e.payload[msgIdx]) *1000 ; // to thous
+				console.log ("startTime: "  + startTime ) ;
+				mURL = WEB_HOST +"startLinePress.php?startTime="+  startTime; // Updates & gets location data string
+				mRequest.open("GET", mURL, true);
+				mRequest.send(null);
+				mRequest.onreadystatechange = function () {
+					if (mRequest.readyState == 4 ){
+						if(mRequest.status == 200){
+							//startLinePressResponse(startLineRequest.responseText);		   		
+						} // if status == 200
+					} // if readyState == 4
+				}; //onreadystatechange
+			}
 		}
-	 }
-);
+});  //Pebble.addEventListener("appmessage",	
+						
 
+function set_course(courseIdx){
+	//console.log("set_course: "+courseIdx);
+	var url = WEB_HOST + "pebbleGetCourses.php?set_course="+courseIdx; 
+	var set_courseRequest = new XMLHttpRequest(); 
+	set_courseRequest.open("GET", url, true);	
+	set_courseRequest.send(null);
+	set_courseRequest.onreadystatechange = function () {
+		  if (set_courseRequest.readyState == 4 ){
+			   	if(set_courseRequest.status == 200){ // or 404 not found	
+					print_division(); //refresh 
+				}				
+			  else {
+				  setTimeout(function(){set_course(courseIdx);},1000);
+			  }
+		}
+	};								  										  
+}
 
 var httpFlags = 0; //1: polars, 2, division, 4:all course, 8: current course
 var polars;
@@ -90,6 +166,7 @@ function readPolars(){
 
 		   }; //onreadystatechange 		
 }
+var degs2metres = 111120; // metres per degree of latitiude
 var yacht = {};
 yacht.prevValues = {};
 var readNavDataRequest = new XMLHttpRequest(); //for read NavData
@@ -114,11 +191,12 @@ var navDataCount = 0;
 var styleRates = [0, 90, 83, 75];
 var STYLE=2 ; 
 var knotsToMps = 0.5144444; // convert knots to metres/sec
-var LOCAL_MAG_VAR ;  //set from settings.magVar (cookie)
+var LOCAL_MAG_VAR ;  //set from courses.clubs[settings.clubIdx].magVar
 //var YACHT_LENGTH = 12.4; 
 //var GPS_BEHIND_BOW = 6; 
 
-var presentPosData;
+
+var HDGr, BTVr;
 //var useGpsLatLon = false ; //true when testing with 
 //var panelsArray; var currentPanelIdx;
 var MIN_ANGLE_FOR_NEXT_MARK = 100; //degrees 
@@ -131,10 +209,11 @@ var upwindTarget, downwindTarget;
 
 function commsTimer(){
 	var commsTimerTimeStamp = Date.now();
-		if (commsTimerTimeStamp - lastPolledTimeStamp > 3000 || pollComplete === true){
+	if (commsTimerTimeStamp - lastPolledTimeStamp > 3000 || pollComplete === true){
 			lastPolledTimeStamp = commsTimerTimeStamp;
 			readNavData();
-		}		
+		}	
+	//if(timerCount++ <10)
 	setTimeout(function(){commsTimer();},1000); 
 }
 
@@ -150,12 +229,9 @@ function readNavData(){
 				   	var mData = readNavDataRequest.responseText;
 				   	if (mData.length >0)
 			   			//Pebble.showSimpleNotificationOnPebble("Message",readNavDataRequest.responseText);
-
 						dispData(readNavDataRequest.responseText);   		
 			   	} // if status == 200
-			 // else {
-				 // Pebble.showSimpleNotificationOnPebble("readNavDataRequest.status",readNavDataRequest.status);
-			//  }
+
 		   } // if readyState == 4
 		
 	}; //onreadystatechange 
@@ -199,17 +275,49 @@ function dampAngle(prevVal, thisVal){
 	if (isNaN(dampedValue)) return thisVal;
 	return dampedValue;
 }
+var missedCyclesGPS = 0 ; // counts the number of times the server has failed to update the GPS time
+var missedCyclesTWS = 0 ; // counts the number of times the server has failed to update the TWS
+var prevTimeMs = 0;
+var prevTWS = 0; //to spot missing Wind data
+var damping=3;
+var MISSED_CYCLES_ALERT_LIMIT = 20; // number of missed cycles (in seconds) before starting the screen flash
+function secondsToMinSecs( mSeconds){
+	 var isNeg = false;
+	 if (mSeconds <0){
+		 mSeconds *=-1;
+		 isNeg = true;
+	 }
+	  var roundSecs = Math.round(mSeconds);
+	  var Mins =  Math.floor(mSeconds/60);
+	  var remSecs = roundSecs - 60* Mins;
+	 return ((isNeg?"-":" ")+Mins + ":" + (remSecs<10?"0":"") + remSecs );
+}
 
+ function calcStartSolution(){
+	 
+ }
+var  pollCounter = 0;
 function dispData(JSONcombinedData){
+		
 	//Pebble.showSimpleNotificationOnPebble("dispData received", JSONcombinedData);
-	navDataCount = 0;
 	navDataFlag = false; // no longer waiting for response
-
 	var combinedData =JSON.parse(JSONcombinedData); 
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "HERE");
 	presentPosData =combinedData.presentPosData;
-//	var startLinePoints=combinedData.startLinePoints;
+	startLinePoints=combinedData.startLinePoints;
+	startTime = Number(startLinePoints.startTime); // sets start time from StartLineData	
+	/*
+	var timeSinceLastGPS = presentPosData.timeMs - prevTimeMs;
 
+	if (timeSinceLastGPS === 0){ //no GPS time update, Logger has not updated navData - something's frozen at the server
+		if (++missedCyclesGPS ==MISSED_CYCLES_ALERT_LIMIT){ //serious.. missed too much time
+			//flashBackground(); 
+		}			
+		return; // no GPS time change, so nothing to update
+	}
+	*/
+	missedCyclesGPS=0;
+	prevTimeMs = presentPosData.timeMs;
 	var reportTime = new Date(Number(presentPosData.timeMs));
 	var formattedReportTime = (reportTime.getHours()<10?"0":"")+reportTime.getHours() + ":"+
 		(reportTime.getMinutes()<10?"0":"")+reportTime.getMinutes() + ":"+
@@ -418,59 +526,200 @@ function dispData(JSONcombinedData){
 	}
 	effect = Math.round((dampedValues.SOG -dampedValues.log)*10)/10;	 
 	
-	//Pebble.showSimpleNotificationOnPebble("DEBUG", "sendAppMessage");
- 	Pebble.sendAppMessage({ "0":  formattedReportTime, //GPS Time
-						   "1": "Log "+ dampedValues.log, //perfActualBtv
-						   "2": "Act TWA "+Math.abs(dampedValues.TWA), //perfActualTWA					  
+	
+	// display start-line details
+	var cosLatRatio = Math.cos(startLinePoints.boatLat*Math.PI/180);
+	var boat={} ;
+	var pin = {};
+	yacht.xMtrs = dampedValues.lat *degs2metres;	
+	yacht.yMtrs = dampedValues.lon * cosLatRatio*degs2metres;
+	boat.xMtrs = startLinePoints.boatLat *degs2metres;	
+	boat.yMtrs = startLinePoints.boatLon * cosLatRatio*degs2metres;
+	pin.xMtrs = startLinePoints.pinLat *degs2metres;
+	pin.yMtrs = startLinePoints.pinLon * cosLatRatio*degs2metres;
+	yacht.xMtrs -= boat.xMtrs; 
+	yacht.yMtrs -= boat.yMtrs; 
+	pin.xMtrs -= boat.xMtrs; 
+	pin.yMtrs -= boat.yMtrs; 
+	boat.xMtrs = 0;
+	boat.yMtrs = 0;
+	//(B) Rotate Yacht round Boat->Pin	
+	pin.r = Math.sqrt(pin.xMtrs*pin.xMtrs + pin.yMtrs*pin.yMtrs ) ; // line length, == 
+	pin.theta = Math.atan2(pin.yMtrs, pin.xMtrs);
+	yacht.r = Math.sqrt(yacht.xMtrs*yacht.xMtrs + yacht.yMtrs*yacht.yMtrs );
+	yacht.theta = Math.atan2(yacht.yMtrs, yacht.xMtrs);	
+	yacht.xMtrs = yacht.r*Math.cos(yacht.theta - pin.theta);
+	yacht.yMtrs = yacht.r*Math.sin(yacht.theta - pin.theta);
+	pin.xMtrs = pin.r;
+	pin.yMtrs = 0;
+
+	var TwdRotatedRads  = (Number(dampedValues.TWD) + LOCAL_MAG_VAR)* Math.PI/180 - pin.theta; // true wind direction (True) Rads rotated to line
+	var twdRotatedDegs = TwdRotatedRads*180/Math.PI; // TWD rotated to Start Line
+	twdRotatedDegs += 360*(twdRotatedDegs<0?1:(twdRotatedDegs>360?-1:0)); // normalize to -0<=x<=360
+	var lineBias = Math.round((twdRotatedDegs - 90 ));
+	HDGr = dampedValues.COG* Math.PI/180 - pin.theta; //reach heading True rotated to line
+	HDGr += 2*Math.PI*(HDGr < 0?1:HDGr > 2* Math.PI?-1:0);
+	BTVr = dampedValues.SOG * knotsToMps ; // reach speed, over the ground in m/s
+
+	var MAX_BIAS_ANGLE_FOR_UPWIND = upwindTarget.TWAt*180/Math.PI;
+	var prefEnd, prefDist;
+	if (Math.abs(lineBias)<MAX_BIAS_ANGLE_FOR_UPWIND) { //upwind
+		prefEnd = (lineBias>=0?"BOAT":"PIN");
+		prefDist = Math.abs(Math.round(pin.r * Math.cos(TwdRotatedRads)));
+	}
+	else{
+		prefEnd = "Dn Wind";
+		prefDist= " ";
+	}
+	var reachTWADegs = 90 +lineBias;
+	var reachSpeedKts = calcReachBTV(dampedValues.TWS, reachTWADegs );
+ 
+	for (var prevValuesIdx in prevValues) // e previous values
+		prevValues[prevValuesIdx] = dampedValues[prevValuesIdx];
+
+	// Starting Time & Distance Solution
+	//var secondsToStart = (startTime - presentPosData.timeMs)/1000; 
+	yacht.zSecs = (presentPosData.timeMs -startTime )/1000; // time to go, -ve to zero to , 
+	//console.log(" yacht.zSecs: "+ yacht.zSecs  );
+	if (yacht.zSecs < 300) {//timer has been activated: if stopped, it's a big positive number, if we're 5 mins late for the line it's - 5*60 = 300 		
+		if (startLinePoints.boatLat !== undefined) // not till response from startLine HTTP request
+			calcStartSolution();
+	}
+	else {
+		//document.getElementById("solutionStatus").innerText = "Timer not running";
+		
+		calcStartSolution(); // display start line data and keep displaying till we're over the line!
+	}
+	var msgObj = {};
+	//console.log("window: "+selectedWindow);
+	if (selectedWindow == "start_line"){
+		msgObj = {"0":  formattedReportTime, //GPS Time
+			"45" :"Len (m) " + Math.round(pin.r), //LINELENGTH
+			"46" : "Bias " + lineBias, //LINEBIAS
+			"47" : "Pref " + prefEnd, //PREFEND
+			"48" : "By (m) " + prefDist, //PREFDIST
+			"49" : "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps), // LINETIME
+			"50" : "At "	+ Math.round(reachSpeedKts*10)/10, // LINESPEED	
+				};
+	}
+		if (selectedWindow == "start_solution"){
+		msgObj = {
+			"51" : (yacht.zSecs < 300?secondsToMinSecs(-yacht.zSecs) + " to START" :formattedReportTime) // VTIMER
+				};
+	}
+	else if  (selectedWindow == "performance"){
+		/*	GPSTIME,	PERFPCDISP, 	PERFACTUALBTV, 	PERFTGTBTV,	PERFACTUALTWA,	PERFTGTTWA,	PERFACTUALVMG,
+	PERFTGTVMG,	TWS,	TWD*/
+	msgObj = { "0":  formattedReportTime, //GPS Time
+		 "1": "Log "+ dampedValues.log, //PERFACTUALBTV
+		"2": "Act TWA "+Math.abs(dampedValues.TWA), //PERFACTUALTWA	
+		"3": "TWS " + dampedValues.TWS , //TWS
+		"4": "TWD "+  dampedValues.TWD, //TWD
+		"5": "Tgt BTV " + perfTgtBTV, //PERFTGTBTV
+		"6": "TgT TWA " + perfTgtTWA, //PERFTGTTWA
+		"7": "TgT VMG " + perfTgtVMG, //PERFTGTVMG
+		"8": "Act VMG " + perfActualVMG, //PERFACTUALVMG
+	 	"9": perfPcDisp, //PERFPCDISP
+			 };
+	}
+	else  if  (selectedWindow == "navigation"){	
+		/*	GPSTIME, 	SOG,	COG,	PERFACTUALBTV,	COMPASS,	CURRENTHDG ,	CURRENTSPEED ,	CURRENTDIR ,	CURRENTEFFECT  ,
+	DEPTH,	TEMP NEXTLEGDESC,	NEXTLEGNAME,	NEXTLEGHDG,	NEXTLEGTWA,	NEXTLEGTWSE,	NEXTLEGAWA,
+	NEXTLEGAWS GPSTIME,	WPTNAME,	WPTDISPDIST,	LAYLINEHDG,//Heading "Lay-line"	LAYLINEDIST,	LAYLINETIME,	BRGCLOCK,
+	BRGDEGS,	WPTVMG,	WPTBRGMAG,	WPTETI,	WPTETA*/
+		msgObj = { "0":  formattedReportTime, //GPS Time
+			"1": "Log "+ dampedValues.log, //PERFACTUALBTV
+			"5": "Tgt BTV " + perfTgtBTV, //PERFTGTBTV
+			"10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,//SOG
+			"11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs, //COG
+			"12" : presentPosData.legIdx+": "+ presentPosData.WptName, //WptName
+			"13" : "Dist " + wptDispDisp, // next mark distance WPTDISPDIST
+			"14" : "Brg C " +presentPosData.wptBearingClock , //BRGCLOCK
+			"15" : "Brg D " + presentPosData.wptBearingDegs,  //degrees relative to current heading  BRGDEGS
+			"16" : "VMG " + dampedValues.wptVMG ,// WPTVMG
+			"17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), //WPTBRGMAG
+			"18" : nextLegText, //Next Lepoint of sailing NEXTLEGDESC
+			"19" : presentPosData.nextLegName, //next leg name NEXTLEGNAME
+			"20": "Hdg(M)" + Math.round(presentPosData.nextLegHDG), //next leg heading NEXTLEGHDG
+			"21" : "TWA "+ nextLegTWA,  //NEXTLEGTWA
+			"22" : "TWS " +  dampedValues.TWS,  //NEXTLEGTWS
+			"23" : "AWA "+ nextLegAWADisp, //NEXTLEGAWA
+			"24" : "AWS " +nextLegAWSDisp, //NEXTLEGAWS
+			"25" : "Temp " + Number(presentPosData.wTemp), //water temp TEMP
+			"26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
+			"27" : "ETI " + wptETI, //WPTETI
+			"28" : "ETA " + formattedWptETA,  //WPTETA
+			"29" : "Lay-line" ,  //LAYLINEHDG
+			"30" : "   Time "+ layLineTime, //LAYLINETIME
+			"31" : "   Dist " + layLineDist, //LAYLINEDIST
+			"32" : "Hdg(M) " +compassDisp, //COMPASS
+			"33" : "Current: ", //section heading //CURRENTHDG
+			"34" : " Speed "+ currentSpeed,//CURRENTSPEED
+			"35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
+			"36" : " Effect "+ effect, //CURRENTEFFECT
+	};
+	}
+else {
+		msgObj = { "0":  formattedReportTime, //GPS Time
+					   "1": "Log "+ dampedValues.log, //PERFACTUALBTV
+						   "2": "Act TWA "+Math.abs(dampedValues.TWA), //PERFACTUALTWA					  
 						   "3": "TWS " + dampedValues.TWS , //TWS
-						   "4": "TWD "+  dampedValues.TWD,
-						   "5": "Tgt BTV " + perfTgtBTV,
-						   "6": "TgT TWA " + perfTgtTWA,
-						   "7": "TgT VMG " + perfTgtVMG,
-						   "8": "Act VMG " + perfActualVMG,
-						   "9": perfPcDisp,
-						   "10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,
-						   "11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs,
+						   "4": "TWD "+  dampedValues.TWD, //TWD
+						   "5": "Tgt BTV " + perfTgtBTV, //PERFTGTBTV
+						   "6": "TgT TWA " + perfTgtTWA, //PERFTGTTWA
+						   "7": "TgT VMG " + perfTgtVMG,  // PERFTGTVMG
+						   "8": "Act VMG " + perfActualVMG, //PERFACTUALVMG
+						   "9": perfPcDisp, //PERFPCDISP
+						   "10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,//SOG
+						   "11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs, //COG
 						   "12" : presentPosData.legIdx+":"+ presentPosData.WptName, //WptName
-						   "13" : "Dist" + wptDispDisp, // next mark distance
-						   "14" : "Brg Clock " +presentPosData.wptBearingClock ,
-						   "15" : "Brg Degs" + presentPosData.wptBearingDegs,  //degrees relative to current heading 
+						   "13" : "Dist " + wptDispDisp, // next mark distance
+						   "14" : "Brg C " +presentPosData.wptBearingClock ,
+						   "15" : "Brg D " + presentPosData.wptBearingDegs,  //degrees relative to current heading 
 						   "16" : "VMG " + dampedValues.wptVMG ,//wptVMG
-						   "17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), 
-						   "18" : nextLegText, //Next Leg Desc
-						   "19" : presentPosData.nextLegName, //next leg name
-						   "20": "Hdg(M)" + Math.round(presentPosData.nextLegHDG), //next leg heading
-						   "21" : "TWA "+ nextLegTWA, 
+						   "17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), //WPTBRGMAG
+						   "18" : nextLegText, //Next Lepoint of sailing NEXTLEGDESC
+						   "19" : presentPosData.nextLegName, //next leg name NEXTLEGNAME
+						   "20": "Hdg(M)" + Math.round(presentPosData.nextLegHDG), //next leg heading NEXTLEGHDG
+						   "21" : "TWA "+ nextLegTWA, // NEXTLEGTWA
 						   "22" : "TWS " +  dampedValues.TWS, 
 						   "23" : "AWA "+ nextLegAWADisp,
 						   "24" : "AWS " +nextLegAWSDisp,
-						   "25" : "Temp " + Number(presentPosData.wTemp), //water temp
-						   "26" : "Depth(m) " + presentPosData.depthM , //depth metres
+						   "25" : "Temp " + Number(presentPosData.wTemp), //water temp TEMP
+						   "26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
 						   "27" : "ETI " + wptETI, //formatted eti
 						   "28" : "ETA " + formattedWptETA, 
 						   "29" : "Lay-line" , //Heading
 						   "30" : "   Time "+ layLineTime,
 						   "31" : "   Dist " + layLineDist,
-						   "32" : "Hdg(M) " +compassDisp,
-						   "33" : "Current", //heading
-						   "34" : " Speed "+ currentSpeed,
-						   "35" : " Dir " + currentAngleDegsMag,
-						   "36" : " Effect "+ effect,
+						   "32" : "Hdg(M) " +compassDisp, //COMPASS
+						   "33" : "Current", //heading //CURRENTHDG
+						   "34" : " Speed "+ currentSpeed,//CURRENTSPEED
+						   "35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
+						   "36" : " Effect "+ effect, //CURRENTEFFECT
 						   // #37 used for current course
-						   
-						   
-						  }, function(e) { //Success callback
-		lastPolledTimeStamp = Date.now();	//managing the polling process
-		pollComplete = true;
+						   "45" :"Len (m) " + Math.round(pin.r), //LINELENGTH
+						   "46" : "Bias " + lineBias, //LINEBIAS
+						   "47" : "Pref " + prefEnd, //PREFEND
+						   "48" : "By (m) " + prefDist, //PREFDIST
+						   "49" : "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps), // LINETIME
+						   "50" : "At "	+ Math.round(reachSpeedKts*10)/10, // LINESPEED	
+						   "51" : (yacht.zSecs < 300?secondsToMinSecs(-yacht.zSecs) + " to START" :formattedReportTime) // VTIMER
+					  
+		 };
+		}
+	//Pebble.showSimpleNotificationOnPebble("DEBUG", "sendAppMessage");
+ 	Pebble.sendAppMessage(msgObj, function(e) { //Success callback
+			lastPolledTimeStamp = Date.now();	//managing the polling process
+			 //onsole.log("NavDatSend OK");
+			pollComplete = true;
   			},
   		function(e) { //Fail callback
    			//Pebble.showSimpleNotificationOnPebble("Nack Message",  e.error.message);
+			//console.log("Nack Message");
   		}
 	);	
 	
-	for (var prevValuesIdx in prevValues) {// update previous values
-		prevValues[prevValuesIdx] = dampedValues[prevValuesIdx];
-	}
 //Pebble.showSimpleNotificationOnPebble("JS ERROR",  "LINE 439");
 
 } //dispData(JSONcombinedData)
@@ -591,23 +840,15 @@ function calcLayLine(range, markAngle, TWA, BTV){
 	layLine.ETI = (layLine.dist + L2)/BTV*hoursToSeconds; //millisecs  
 	return layLine;
 }
-function secondsToMinSecs( mSeconds){
-	 var isNeg = false;
-	 if (mSeconds <0){
-		 mSeconds *=-1;
-		 isNeg = true;
-	 }
-	  var roundSecs = Math.round(mSeconds);
-	  var Mins =  Math.floor(mSeconds/60);
-	  var remSecs = roundSecs - 60* Mins;
-	 return ((isNeg?"-":" ")+Mins + ":" + (remSecs<10?"0":"") + remSecs );
-}
+
 var courses; // the BIG clubs/series/...object
 /*
 * reads the course with pebbleGetCourses and
 * sends it as text as appMessage #37
 */
-function read_course(){
+function load_data(){
+	readCookies(); // from tactician web server (phone) with php
+	readPolars(); //this can be done before watch is ready
 	print_division();
 	get_all_courses();
 	
@@ -622,6 +863,7 @@ function print_division(){
 			   	if(readCoursesRequest.status == 200){ // or 404 not found	
 					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", readCoursesRequest.responseText);
 					 upload_division(readCoursesRequest.responseText);
+		//console.log(readCoursesRequest.responseText);
 					testHttpFlags(2);
 				}
 				else
@@ -643,103 +885,51 @@ function upload_division(mText){
 	);
 }
 function get_all_courses(){
+	//console.log("get_all_courses");
 	/*
 	* get the whole courses object for this club
 	*/
 	var url = WEB_HOST + "pebbleGetCourses.php?get_all_courses"; 
-	var get_current_courseRequest = new XMLHttpRequest(); 
-	get_current_courseRequest.open("GET", url, true);	
-	get_current_courseRequest.send(null);
-	get_current_courseRequest.onreadystatechange = function () {
-		  if (get_current_courseRequest.readyState == 4 ){
-			   	if(get_current_courseRequest.status == 200){ // or 404 not found	
-					//Pebble.showSimpleNotificationOnPebble("get_all_courses", readCoursesRequest.responseText);
-					courses = JSON.parse(get_current_courseRequest.responseText); 
-					var currentSeries = courses.clubs[settings.clubIdx].series;
-					var mSeriesList = "";
-					for (var seriesIdx in currentSeries){
-						mSeriesList += currentSeries[seriesIdx].name + "|";
-					}	
-					seriesIdx = Number(seriesIdx)+1;
-					testHttpFlags(3);
-					upload_all_courses(mSeriesList,seriesIdx );
-					get_current_course();
-				}
-				else
-					Pebble.showSimpleNotificationOnPebble("HTTP Fail(3)", "Check that your web server is running");
-		 	}
-		};
-}
-function upload_all_courses(mSeriesList,seriesIdx ){
-						Pebble.sendAppMessage({ 
-						"40": mSeriesList, //SERIESLIST
-						"41": seriesIdx, //SERIESCOUNT force to numeric
-						  }, function(e) { //Success callback
-							  testHttpFlags(6);
-							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 							 
-  						},
-						function(e) { //Fail callback
-							//Pebble.showSimpleNotificationOnPebble("Upload (6)failed, retrying: ","get_all_courses"); 
-							setTimeout(function(){upload_all_courses(mSeriesList,seriesIdx);},1000);
-						}
-					);
-}
-	/*
-	* get current course json object: this contains the current course's Series and Course number, mark locations, dist and headings
-	* but only send  the  Series and Course number and wind
-	*/	
-var currentCourse;
-function get_current_course(){
-	var url = WEB_HOST + "pebbleGetCourses.php?get_current_course"; 
 	var get_all_coursesRequest = new XMLHttpRequest(); 
 	get_all_coursesRequest.open("GET", url, true);	
 	get_all_coursesRequest.send(null);
 	get_all_coursesRequest.onreadystatechange = function () {
 		  if (get_all_coursesRequest.readyState == 4 ){
 			   	if(get_all_coursesRequest.status == 200){ // or 404 not found	
-					 currentCourse = JSON.parse(get_all_coursesRequest.responseText);
-					//Pebble.showSimpleNotificationOnPebble("CurrentCourse", currentCourse.series);
-					upload_current_course();
+					courses = JSON.parse(get_all_coursesRequest.responseText); 
+					testHttpFlags(3);
+					// upload_all_courses(mSeriesList,seriesIdx ); OBSOLETE with configuration settings determining club & series
+ 					testHttpFlags(6); //Here to manage obsolescence of upload_all_courses
+					//get_current_course();
+					testHttpFlags(4);testHttpFlags(7); //obsolete  get_current_course
+					//populateDivsFromSeries(); //populate div/course list
+					setTimeout(function(){populateDivsFromSeries();},500); //work-around for occasional latency issue
 				}
-			  else
-				  Pebble.showSimpleNotificationOnPebble("HTTP Fail(4)", "Check that your web server is running"); 
-				  setTimeout(function(){get_current_course();},1000);
-		 }
-	};									  
-										  
+				else
+					Pebble.showSimpleNotificationOnPebble("HTTP Fail(3)", "Check that your web server is running");
+		 	}
+		};
 }
-function upload_current_course(){
-	Pebble.sendAppMessage({ 
-						"38": currentCourse.series, //SERIESNAME
-						"39": currentCourse.course +" " + currentCourse.wind +" "+ currentCourse.name ,
-						  }, function(e) { //Success callback	
-							  testHttpFlags(7);
-							  //Pebble.showSimpleNotificationOnPebble("get_current_course",get_current_courseRequest.responseText); 
-  						},
-						function(e) { //Fail callback
-							//Pebble.showSimpleNotificationOnPebble("Upload (7) failed, retrying:","get_current_course"); 						
-							setTimeout(function(){upload_current_course();},1000);
-						}
-					);
-					populateDivsFromSeries(); //populate div/course list
-					 testHttpFlags(4);
-}
+
+
 /* extract the division/courses for the current series
 from the courses object  
 */
 function populateDivsFromSeries() { //modelled on getSeriesFromSelect
 	
-	var thisSeriesObj = courses.clubs[settings.clubIdx].series[currentCourse.seriesIdx].courses; //
+	var thisSeriesObj = courses.clubs[settings.clubIdx].series[settings.seriesIdx].courses; //
 	var courseDivsList = "";
 	var courseDivCount = 0;
 	for (var courseIdx in thisSeriesObj){
 		var thisCourse = thisSeriesObj[courseIdx];
-		for (var divisionIdx in thisCourse.divisions){
+		//for (var divisionIdx in thisCourse.divisions){
 			courseDivCount ++;
-			var selectedDivision = thisCourse.divisions[divisionIdx];
-			courseDivsList += thisCourse.number+" "+ selectedDivision.name + " "+ thisCourse.wind +"|"+
-				courseIdx +"|"+ divisionIdx +":";  // | delimited within : delimited		
-		}
+			//var selectedDivision = thisCourse.divisions[settings.divIdx];
+			//courseDivsList += thisCourse.number+" "+ selectedDivision.name + " "+ thisCourse.wind +"|"+
+			courseDivsList += thisCourse.number +" "+ thisCourse.wind +"|"+
+				//courseIdx +"|"+ settings.divIdx +":";  // | delimited within : delimited		
+				courseIdx+":";  // | delimited within : delimited		
+		//}
 	}
 	uploadDivs(courseDivCount,courseDivsList );
 }
@@ -792,24 +982,27 @@ function testHttpFlags(flag){
 		settingsText  += "\nSeries: ";
 		if (settings.seriesIdx === undefined)
 			settings.seriesIdx = 0;
-		settingsText +=  courses.clubs[settings.clubIdx].series[settings.seriesIdx].name;			
+		settingsText +=  courses.clubs[settings.clubIdx]
+				.series[settings.seriesIdx].name;			
 		settingsText  += "\nDivision: ";
 		if (settings.divIdx === undefined)
 			settings.divIdx = 0;
 		if (settings.divIdx !== 0)
 			settingsText += courses.clubs[settings.clubIdx]
 				.series[settings.seriesIdx]
-				.courses[0].divisions[settings.divIdx].name;					
+				.courses[0]  //assume all courses in the series have the same divisions, so 
+				.divisions[settings.divIdx].name;					
 		settingsText  += "\nMag Var'n: ";
 		if (settings.magVar === undefined)
 			settings.magVar=0;
 		settingsText +=  settings.magVar;			
-		LOCAL_MAG_VAR = settings.magVar;
-		//console.log('testHttpFlags' + flag);
+		LOCAL_MAG_VAR = Number(courses.clubs[settings.clubIdx].magVar);
+		//console.log("Magnetic Variation: "+LOCAL_MAG_VAR);
 		//Pebble.showSimpleNotificationOnPebble("Data loaded:",settingsText); 
 		flagDataLoaded();
 
 	}
+	//console.log('testHttpFlag: '  + flag + ":" +httpFlags);
 	//else 
 		//Pebble.showSimpleNotificationOnPebble("Server progress:","Flag: "+flag + "flags: "+httpFlags); 
 }
@@ -829,4 +1022,3 @@ function flagDataLoaded( ){
 				}
 	);	
 }
- 

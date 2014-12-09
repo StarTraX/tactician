@@ -22,13 +22,13 @@ static void nav_courses_menu_window_load(Window *m_window) {
 
   // This is an example of how you'd set a simple menu item
 	menu_items[num_a_items++] = (SimpleMenuItem){
-      .title = mAns[SERIESNAME],
+      .title = seriesName,
     .subtitle = "Select Series ",
     .callback = nav_menu_select_callback,
   };
   // The menu items appear in the order saved in the menu items array
 	 menu_items[num_a_items++] = (SimpleMenuItem){
-    .title = mAns[COURSENAME],
+    .title = courseName,
     .subtitle = "Select Course",
     .callback = nav_menu_select_callback,
   };

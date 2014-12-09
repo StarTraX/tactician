@@ -2,7 +2,7 @@
 #include "pebble.h"
 #define DISP_WIDTH 20 //width of each display
 void dashboard_init();
-enum  { //to manage the display fields
+enum  { //incoming message  keys
 	GPSTIME, //gpsTime (0)
 	PERFACTUALBTV, //perfActualBtv, (1)
 	PERFACTUALTWA, //perfActualTWA, (2)
@@ -48,14 +48,28 @@ enum  { //to manage the display fields
 	COURSEDIVSCOUNT, // 42 number of course divisions in this series
 	COURSEDIVS, //43 the | and : separated list of divs
 	FLAGDATALOADED, //44 when data loaded, start the watchapp
+	LINELENGTH, //45 start line length
+	LINEBIAS, //46 Start line bias (degs)
+	PREFEND, //"47" : "Pref " + prefEnd, //PREFEND
+	PREFDIST,  //"48" : "Pref " + prefDist, //PREFDIST
+	LINETIME, // "49" : "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps), // LINETIME
+	LINESPEED, //"50" : "At "	+ Math.round(reachSpeedKts*10)/10, // LINESPEED			
+	VTIMER , //51 start solution time report
+						   
 	numberOfDisplays, //count of the number of displays	
 };
+char * courseName, * seriesName;
+char * wptName, * nextLegName;
+
 TextLayer * displayFields[numberOfDisplays];
-char ** mAns;
+//TextLayer ** displayFields;
+//char ** mAns;
 char * currentCourseText;
 char * courseDivsText;
 char * seriesList;
-GFont s_res_gothic_28;
+char * splashScreenMessage,  * refreshingMsg;
+GFont displayFont1, dispHdgFont1;
+TextLayer * page_heading;
 int rowIndex;
 int rowSpace;
 int seriesCount; //count of number of series in Club

@@ -12,12 +12,6 @@
                 "file": "images/appImagenew.png",
                 "name": "APP_IMAGE",
                 "type": "png"
-            },
-            {
-                "file": "images/menuImage.png",
-                "menuIcon": true,
-                "name": "MENU_IMAGE",
-                "type": "png"
             }
         ]
     },

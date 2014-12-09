@@ -19,7 +19,7 @@ void BitmapLayerCallbacks() {
 	window_single_click_subscribe(BUTTON_ID_SELECT, close_splash_window_handler);
 }
 void handle_splash_window_appear(Window* window) {
-text_layer_set_text(displayFields[FLAGDATALOADED],mAns[FLAGDATALOADED] );
+text_layer_set_text(displayFields[FLAGDATALOADED],splashScreenMessage);
 }
 
 
@@ -33,8 +33,8 @@ static void initialise_splash_ui(void) {
     layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(bitmap_layer));	
 	
 	displayFields[FLAGDATALOADED] =  text_layer_create(GRect(0, 104, 144, 30));  //Status "Loading"/"Bye""
-	text_layer_set_text(displayFields[FLAGDATALOADED],mAns[FLAGDATALOADED] );	
-	text_layer_set_font( displayFields[FLAGDATALOADED], s_res_gothic_28);
+	text_layer_set_text(displayFields[FLAGDATALOADED],splashScreenMessage );	
+	text_layer_set_font( displayFields[FLAGDATALOADED], displayFont1);
 	layer_add_child(window_get_root_layer(window), (Layer *)displayFields[FLAGDATALOADED]);
 
 }
