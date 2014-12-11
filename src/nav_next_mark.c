@@ -90,6 +90,8 @@ static void handle_nav_window_unload(Window* window) {
 }
  static void window_appear(){
 		text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
+	 	send_to_phone(TupletCString(100, "nav_next_mark"));
+
 }
 void show_nav_next_mark(void) {
 

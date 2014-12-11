@@ -14,6 +14,7 @@ static void menu_select_callback(int index, void *ctx) {
 		send_to_phone(TupletCString(103, "BOAT")); 
 	else if(index==1)
 		send_to_phone(TupletCString(103, "PIN")); 
+	vibes_short_pulse();
 	window_stack_pop(true); //this window
 }
 
@@ -55,11 +56,12 @@ static void window_unload(Window *window) {// Deinitialize resources on window u
 }
 
  void show_start_ping_menu(){
-   window = window_create();
-  window_set_window_handlers(window, (WindowHandlers) {
-    .load = window_load,
-    .unload = window_unload,
-	.appear = window_appear,
+   	window = window_create();
+	window_set_fullscreen(window, true);
+  	window_set_window_handlers(window, (WindowHandlers) {
+    	.load = window_load,
+    	.unload = window_unload,
+		.appear = window_appear,
   });
 	window_stack_push(window, true /* Animated */);
 }

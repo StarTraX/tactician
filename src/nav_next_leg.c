@@ -78,6 +78,7 @@ static void handle_nav_window_unload(Window* window) {
   	window_destroy(window);
 }
 static void window_appear(){
+		 send_to_phone(TupletCString(100, "nav_next_leg"));
 		text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
 }
 

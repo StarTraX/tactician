@@ -16,6 +16,7 @@ void nav_divs_menu_window_unload(Window *mWindow) {// Deinitialize resources on 
 }
 static void nav_divs_select_callback(int index, void *ctx) {	
  	send_to_phone( TupletInteger(101, index)); //index maps to courseIdx!
+	vibes_short_pulse();
 	window_stack_pop(true); //close this window (course menu)
 	window_stack_pop(true); //close prev window current Course)
 	window_stack_pop(true); //close  navigation menu

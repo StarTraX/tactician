@@ -54,6 +54,7 @@ static bool isEB = false;
 			 	//APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
 			 	break;
 			 // the next bunch are required in menus as well as in display windows so...
+			 /*
 			 case COURSENAME:
 			 	courseName = dataReceived->value->cstring;
 			 	if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
@@ -66,7 +67,8 @@ static bool isEB = false;
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	
 				 }
 			 break;
-				 case WPTNAME:
+			 */
+			case WPTNAME:
 			 	wptName = dataReceived->value->cstring;
 			 	if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	

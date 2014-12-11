@@ -3,25 +3,26 @@
 #include "performance.h"
 
 #include "dashboard.h"
-#define STARTSOLUTIONCOUNT 1
+#define STARTSOLUTIONCOUNT 4
 static Window *window;
 
  static ScrollLayer *scroll_layer;
 static int dispList [STARTSOLUTIONCOUNT] = {
-	VTIMER
-	
+	VTIMER,
+	SOLUTIONSTATUS,
+	SOLUTIONTIME,
+	SOLUTIONPOS
 };
 
 char  Msg[100];
 
 static void set_text_layer( int dispIdx ){
-		displayFields[dispIdx] = text_layer_create(GRect(0, rowSpace*(rowIndex++), 144, 40)); //GPS Time
+		displayFields[dispIdx] = text_layer_create(GRect(0, rowSpace*(rowIndex++), 144, rowSpace)); 
   		text_layer_set_font( displayFields[dispIdx], displayFont1);
   	scroll_layer_add_child(scroll_layer, (Layer *)displayFields[dispIdx]);
 }
 
 static void window_load (Window* window) { 
-	rowIndex=0;
 	rowSpace = 32;
 	text_layer_set_text(page_heading, "START TIME & DIST");
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(page_heading));
@@ -30,6 +31,7 @@ static void window_load (Window* window) {
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
   	scroll_layer_set_click_config_onto_window(scroll_layer, window);
   	scroll_layer_set_content_size(scroll_layer, GSize(144,400)); // size of the surface that scrolls???
+	rowIndex = 0; // first row for the timer
 	for (int i = 0; i< STARTSOLUTIONCOUNT; i++){
 		set_text_layer(dispList[i]);
 	}
@@ -55,7 +57,7 @@ static void window_appear(){
 }
 void show_start_solution(void) {
    	window = window_create();
-	// window_set_fullscreen(window, true);	
+	window_set_fullscreen(window, true);	
   window_set_window_handlers(window, (WindowHandlers) {
 	  .load = window_load,
     .unload = handle_window_unload,	 

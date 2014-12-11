@@ -54,8 +54,11 @@ enum  { //incoming message  keys
 	PREFDIST,  //"48" : "Pref " + prefDist, //PREFDIST
 	LINETIME, // "49" : "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps), // LINETIME
 	LINESPEED, //"50" : "At "	+ Math.round(reachSpeedKts*10)/10, // LINESPEED			
-	VTIMER , //51 start solution time report
-						   
+	VTIMER , //51 START SOLUTION time report
+	SOLUTIONSTATUS, //52 description
+	SOLUTIONTIME, //53 SOLUTIONTIME time to line  or time to tack
+	SOLUTIONPOS, //54 "Line dist: " +lineDist
+
 	numberOfDisplays, //count of the number of displays	
 };
 char * courseName, * seriesName;

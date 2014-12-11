@@ -4,6 +4,7 @@
 #include <navigation_menu.h>
 #include <start_menu.h>
 
+
 #define NUM_MENU_SECTIONS 1
 #define NUM_FIRST_MENU_ITEMS 3
 
@@ -26,7 +27,6 @@ static void menu_select_callback(int index, void *ctx) {
 		show_performance();
 	}
 	if(index==2){
-		//APP_LOG(APP_LOG_LEVEL_INFO, "Navigation");
 		show_nav_menu();
 	}
   // Mark the layer to be updated

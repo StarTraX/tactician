@@ -30,7 +30,7 @@ Pebble.addEventListener("ready",
 
   }// eventListener callback
 );//addEventListener ready
-var selectedWindow, presentPosData, startLinePoints;
+var watchPhase, selectedWindow, presentPosData, startLinePoints;
 Pebble.addEventListener("appmessage",						
 	 function(e) {
 		 var mURL;
@@ -39,7 +39,14 @@ Pebble.addEventListener("appmessage",
 			if (msgIdx == 100){ // selected WINDOW 
 				selectedWindow = e.payload[msgIdx];
 				console.log("received: "+selectedWindow);
+				if (selectedWindow.substr(0,5)=="start" )
+					watchPhase = "start";
+				else if (selectedWindow.substr(0, 4) =="perf" )
+					watchPhase = "perf";
+				else if (selectedWindow.substr(0, 3)=="nav" )
+					watchPhase = "nav";
 			}
+			//console.log("watchPhase: "+watchPhase);
 			if (msgIdx == 101){// selected course
 			set_course(e.payload[msgIdx]);
 			}
@@ -103,6 +110,17 @@ Pebble.addEventListener("appmessage",
 		}
 });  //Pebble.addEventListener("appmessage",	
 						
+function secondsToMinSecs( mSeconds){
+	 var isNeg = false;
+	 if (mSeconds <0){
+		 mSeconds *=-1;
+		 isNeg = true;
+	 }
+	  var roundSecs = Math.round(mSeconds);
+	  var Mins =  Math.floor(mSeconds/60);
+	  var remSecs = roundSecs - 60* Mins;
+	 return ((isNeg?"-":" ")+Mins + ":" + (remSecs<10?"0":"") + remSecs );
+}
 
 function set_course(courseIdx){
 	//console.log("set_course: "+courseIdx);
@@ -179,7 +197,7 @@ var compassPoints = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","W
 
 //var loop = true;
 var navDataFlag = false; // set while waiting for response
-var navDataCount = 0;
+//var navDataCount = 0;
 //var TWSDataFlag = false; // set while waiting for response
 //var TWSDataCount = 0;
 //var TWDDataFlag = false; // set while waiting for response
@@ -188,12 +206,12 @@ var navDataCount = 0;
 //var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
 
 //var styleDescs = [" ","Agressive","Standard","Defensive"];
-var styleRates = [0, 90, 83, 75];
-var STYLE=2 ; 
+var styleRates = [100, 90, 83, 75];
+var STYLE;  //set from Settings/Configuration
 var knotsToMps = 0.5144444; // convert knots to metres/sec
 var LOCAL_MAG_VAR ;  //set from courses.clubs[settings.clubIdx].magVar
-//var YACHT_LENGTH = 12.4; 
-//var GPS_BEHIND_BOW = 6; 
+var YACHT_LENGTH ;  //set from Settings/Configuration
+var GPS_BEHIND_BOW ;  //set from Settings/Configuration
 
 
 var HDGr, BTVr;
@@ -216,6 +234,194 @@ function commsTimer(){
 	//if(timerCount++ <10)
 	setTimeout(function(){commsTimer();},1000); 
 }
+function calcStartSolution(formattedReportTime, currentCourse){ // start line & solution
+	var msgObj = {};
+	var cosLatRatio = Math.cos(startLinePoints.boatLat*Math.PI/180);
+	var boat={} ;
+	var pin = {};
+	//Transform POSITION wrt boat->pin
+	yacht.xMtrs = dampedValues.lat *degs2metres;	
+	yacht.yMtrs = dampedValues.lon * cosLatRatio*degs2metres;
+	boat.xMtrs = startLinePoints.boatLat *degs2metres;	
+	boat.yMtrs = startLinePoints.boatLon * cosLatRatio*degs2metres;
+	pin.xMtrs = startLinePoints.pinLat *degs2metres;
+	pin.yMtrs = startLinePoints.pinLon * cosLatRatio*degs2metres;
+	yacht.xMtrs -= boat.xMtrs; 
+	yacht.yMtrs -= boat.yMtrs; 
+	pin.xMtrs -= boat.xMtrs; 
+	pin.yMtrs -= boat.yMtrs; 
+	boat.xMtrs = 0;
+	boat.yMtrs = 0;
+	//(B) Rotate Yacht round Boat->Pin	
+	pin.r = Math.sqrt(pin.xMtrs*pin.xMtrs + pin.yMtrs*pin.yMtrs ) ; // line length, == 
+	pin.theta = Math.atan2(pin.yMtrs, pin.xMtrs);
+	yacht.r = Math.sqrt(yacht.xMtrs*yacht.xMtrs + yacht.yMtrs*yacht.yMtrs );
+	yacht.theta = Math.atan2(yacht.yMtrs, yacht.xMtrs);	
+	yacht.xMtrs = yacht.r*Math.cos(yacht.theta - pin.theta);
+	yacht.yMtrs = yacht.r*Math.sin(yacht.theta - pin.theta);
+	pin.xMtrs = pin.r;
+	pin.yMtrs = 0;
+	//transform TWD wrt start line
+	var TwdRotatedRads  = (Number(dampedValues.TWD) + LOCAL_MAG_VAR)* Math.PI/180 - pin.theta; // true wind direction (True) Rads rotated to line
+	var twdRotatedDegs = TwdRotatedRads*180/Math.PI; // TWD rotated to Start Line
+	twdRotatedDegs += 360*(twdRotatedDegs<0?1:(twdRotatedDegs>360?-1:0)); // normalize to -0<=x<=360
+	var lineBias = Math.round((twdRotatedDegs - 90 ));
+	// transform YACHT HEADING wrt start line
+	HDGr = dampedValues.COG* Math.PI/180 - pin.theta; //current heading (True) rotated to line
+	HDGr += 2*Math.PI*(HDGr < 0?1:HDGr > 2* Math.PI?-1:0);  //normalize to 0<=x<=2pi
+	BTVr = dampedValues.SOG * knotsToMps ; // current speed, over the ground in m/s
+
+	var MAX_BIAS_ANGLE_FOR_UPWIND = upwindTarget.TWAt*180/Math.PI; // in degrees
+	var prefEnd, prefDist;
+	var lineTime, lineSpeed;
+	var solutionTime = ""; // time to tack(off wind) or time to line (Beat)
+	var solutionPos = ""; // line position (off wind) or boats from line (Beat)
+	var solutionStatus;
+	if (Math.abs(lineBias)>=MAX_BIAS_ANGLE_FOR_UPWIND) { //upwind
+		prefEnd = "Dn Wind";
+		prefDist= " ";
+		lineTime = "";
+		lineSpeed = "";
+	}
+	else{ //Upwind start line
+		prefEnd = (lineBias>=0?"BOAT":"PIN");
+		prefDist = Math.abs(Math.round(pin.r * Math.cos(TwdRotatedRads)));
+		var reachTWADegs = 90 +lineBias;
+		var reachSpeedKts = calcReachBTV(dampedValues.TWS, reachTWADegs )*styleRates[STYLE]/100;
+		lineTime = "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps); // LINETIME
+		lineSpeed = "At "	+ Math.round(reachSpeedKts*10)/10; // LINESPEED					
+		// Starting Time & Distance Solution
+		yacht.zSecs = (presentPosData.timeMs -startTime )/1000; // time to go, -ve to zero to , 
+		if (yacht.zSecs >180 )// gun time time is more than 3 minutes ago
+			solutionStatus =  "Timer off.";
+		else if (yacht.zSecs < -600 ){ 
+			solutionStatus = "Outside 5 mins";
+		}
+		else { // inside 5 minutes 
+			var lineDist = yacht.yMtrs + GPS_BEHIND_BOW*Math.sin(HDGr)  ; // Actual dist plus GPS pos from bow (behind line is negative
+			if (lineDist > 0 ){ // over the line
+				solutionStatus = "Over the the line";
+				solutionTime ="";
+				solutionPos = "";
+				if( yacht.zSecs > 0){ //  and after the gun
+					solutionStatus= "Navigating."	;					
+					startTime = 0; //stop the timer to prevent any further action on the starting page
+					var mURL = "startNav.php";
+					var mRequest = new XMLHttpRequest(); //for navStart.php
+					mRequest.open("GET", mURL, true); 
+					mRequest.send(null);
+					mRequest.onreadystatechange = function () {
+					   if (mRequest.readyState == 4 && mRequest.status == 200 ){
+							//var resp = mRequest.responseText;	
+						   //	alert ("startNav.php: Nav started with "+resp);
+					   } // if readyState == 4
+					}; //onreadystatechange
+				}			
+			}// over the line
+			else { // behind the line				
+				if ((HDGr <= TwdRotatedRads+ upwindTarget.TWAt && //between start to luff on Port and 20 degs eased on stbd
+				  HDGr >= TwdRotatedRads - upwindTarget.TWAt - 0.35 ) ||// we have started to tack onto,  or are on,  stbd tack. .35 ~=20 deg's					solutionStatus = "Beat to the line";
+				  yacht.zSecs > -45){// OR inside 45 sec's so it continues to do T&D if we bear away
+					solutionStatus="FINAL BEAT!";
+					var theoreticalDistToLine = -yacht.yMtrs/Math.sin(TwdRotatedRads - upwindTarget.TWAt)  - GPS_BEHIND_BOW  ; // dist (mtres) based on location and Target TWA + pos of GPS from bow
+					var boatsFromLine = Math.round(10*theoreticalDistToLine / YACHT_LENGTH)/10  ; // our yacht length rounded to 1 decimal
+					var timeToBurn = Math.round(-yacht.zSecs - theoreticalDistToLine/ upwindTarget.BTVt); // +ve: EARLY, -ve: LATE
+					solutionTime =  (timeToBurn>0?"BURN "+ timeToBurn : "LATE by " + (-timeToBurn));
+					solutionPos = boatsFromLine + " boats" ;
+				}
+				else { // off the wind and behind the line 
+					// calculate position WRT the ZONE - can we get to where on the line
+					// time  to PIN based on heading to pin: 
+					var TWAToEnd =Math.abs(TwdRotatedRads - Math.atan2(yacht.yMtrs, (pin.xMtrs - yacht.xMtrs)))*180/Math.PI;
+					//console.log("TWATo Pin: "+TWAToEnd );
+					var BTVToEnd; 
+					if (TWAToEnd> upwindTarget.TWAt){ // reach to the pin
+						BTVToEnd= calcReachBTV(dampedValues.TWS, TWAToEnd )*knotsToMps*styleRates[STYLE]/100;		//mps	
+						yacht.timeToPin = Math.sqrt((yacht.xMtrs -pin.xMtrs) *(yacht.xMtrs -pin.xMtrs) + yacht.yMtrs*yacht.yMtrs)/BTVToEnd;
+					}
+					else  //work to the pin}
+						yacht.timeToPin = Number.MAX_VALUE;
+					// time to BOAT
+					TWAToEnd =Math.abs(TwdRotatedRads - Math.atan2(yacht.yMtrs, yacht.xMtrs))*180/Math.PI;
+					//console.log("TWATo BOAT: "+TWAToEnd );
+					if (TWAToEnd> upwindTarget.TWAt){ // reach to the BOAT
+						BTVToEnd= calcReachBTV(dampedValues.TWS, TWAToEnd )*knotsToMps;		//mps	
+						yacht.timeToBoat = Math.sqrt(yacht.xMtrs *yacht.xMtrs + yacht.yMtrs*yacht.yMtrs)/BTVToEnd;
+					}
+					else  //work to the pin}
+						yacht.timeToBoat = Number.MAX_VALUE;
+					//--- now check the Zone pos ---
+					if (yacht.timeToPin > Math.abs(yacht.zSecs)) { 
+						if (yacht.timeToBoat > Math.abs(yacht.zSecs))
+							solutionStatus="NEITHER END";
+						else	
+							solutionStatus="LATE FOR PIN";
+					}
+					else {
+						if (yacht.timeToBoat > Math.abs(yacht.zSecs))
+							solutionStatus="LATE FOR BOAT.";
+						else 	
+							solutionStatus="IN THE ZONE";
+					}
+					//console.log("yacht.timeToBoat: " +yacht.timeToBoat + " yacht.timeToPin: "+ yacht.timeToPin);
+					// now, calc line pos from this pos'n and heading
+					if (HDGr > 3*Math.PI/2){// going away, so no solution:
+						solutionTime = "On Stbd tack, ";
+						solutionPos = "no sol'n yet.";
+					}
+					else { // not heading away, so calculate start line solution
+						var Q ={}; 	 
+						// Calculations algorithm
+						var beatAngle = TwdRotatedRads - upwindTarget.TWAt; //Target beat angle to the line (rads)
+						var m1 = Math.tan(beatAngle); // true wind angle (grad) of the beat to the line
+						var m2 = upwindTarget.BTVt*Math.sin(beatAngle);  // beat speed to the line (m/s)
+						var m3 = Math.tan(HDGr); //reach angle to line
+						var c3 = yacht.yMtrs - m3*yacht.xMtrs ;
+						var m4 = BTVr*Math.sin(HDGr); 
+						var c4 = yacht.yMtrs  - m4*yacht.zSecs ;
+						var tackPoint = {};
+						tackPoint.zSecs = c4/(m2-m4);
+						tackPoint.yMtrs = m2*tackPoint.zSecs;
+						tackPoint.xMtrs = (tackPoint.yMtrs - c3)/m3;
+						var c1 = tackPoint.yMtrs - m1*tackPoint.xMtrs;
+						Q.xMtrs = -c1/m1 ;
+						var pcLine = Q.xMtrs/pin.xMtrs*100 ; //% of line
+						solutionTime ="Tack in " + Math.round(tackPoint.zSecs -yacht.zSecs)+ " secs."; // time to tack point
+						if (pcLine < 0) solutionPos = "Above Boat";
+						else if (pcLine < 20) solutionPos = "Boat End";
+						else if (pcLine < 40) solutionPos = "Mid Boat";
+						else if (pcLine < 60) solutionPos = "Middle";
+						else if (pcLine < 80) solutionPos = "Mid Pin";
+						else if (pcLine < 100) solutionPos = "Pin End";
+						else solutionPos = "Below Pin" ;
+					}//heading for the line off the wind
+				}// off the wind or beating
+			}// behind the line
+		}// inside 5 mins
+	}//upwind start
+
+		
+	//---------------------------------------
+	if (selectedWindow == "start_line"){
+		msgObj = {"0":  formattedReportTime, //GPS Time
+			"45" :"Len (m) " + Math.round(pin.r), //LINELENGTH
+			"46" : "Bias " + lineBias, //LINEBIAS
+			"47" : "Pref " + prefEnd, //PREFEND
+			"48" : "By (m) " + prefDist, //PREFDIST
+			"49" : lineTime, // LINETIME
+			"50" : lineSpeed, // LINESPEED	
+				};
+	}
+	else if (selectedWindow == "start_solution"){
+		msgObj = {	
+			"51" : (yacht.zSecs < 300?secondsToMinSecs(-yacht.zSecs) + " to START" :formattedReportTime), // VTIMER
+			"52" : solutionStatus, //SOLUTIONSTATUS			
+			"53" : solutionTime, //SOLUTIONTIME time to line  or time to tack
+			"54" : solutionPos , //SOLUTIONPOS line distance or line position
+				};
+	}
+	return msgObj;
+} //calcSolution
 
 function readNavData(){
 
@@ -231,12 +437,10 @@ function readNavData(){
 			   			//Pebble.showSimpleNotificationOnPebble("Message",readNavDataRequest.responseText);
 						dispData(readNavDataRequest.responseText);   		
 			   	} // if status == 200
-
-		   } // if readyState == 4
-		
+		   } // if readyState == 4		
 	}; //onreadystatechange 
-
 }
+	
 //var prevTimeMs = 0;
 var damping=3;
 function loggerDataType (){
@@ -281,21 +485,8 @@ var prevTimeMs = 0;
 var prevTWS = 0; //to spot missing Wind data
 var damping=3;
 var MISSED_CYCLES_ALERT_LIMIT = 20; // number of missed cycles (in seconds) before starting the screen flash
-function secondsToMinSecs( mSeconds){
-	 var isNeg = false;
-	 if (mSeconds <0){
-		 mSeconds *=-1;
-		 isNeg = true;
-	 }
-	  var roundSecs = Math.round(mSeconds);
-	  var Mins =  Math.floor(mSeconds/60);
-	  var remSecs = roundSecs - 60* Mins;
-	 return ((isNeg?"-":" ")+Mins + ":" + (remSecs<10?"0":"") + remSecs );
-}
 
- function calcStartSolution(){
-	 
- }
+ 
 var  pollCounter = 0;
 function dispData(JSONcombinedData){
 		
@@ -321,7 +512,7 @@ function dispData(JSONcombinedData){
 	var reportTime = new Date(Number(presentPosData.timeMs));
 	var formattedReportTime = (reportTime.getHours()<10?"0":"")+reportTime.getHours() + ":"+
 		(reportTime.getMinutes()<10?"0":"")+reportTime.getMinutes() + ":"+
-		(reportTime.getSeconds()<10?"0":"")+reportTime.getSeconds() + " GPS  " ;
+		(reportTime.getSeconds()<10?"0":"")+reportTime.getSeconds() + " (GPS)" ;
 	//formattedTime ="GPS "+(mMins<10?"0":"")+mMins + ":"+ (mSecs<10?"0":"")+mSecs;
 	//Pebble.showSimpleNotificationOnPebble("reportTime",formattedTime);
 	//dampedValues = new loggerDataType;
@@ -525,93 +716,22 @@ function dispData(JSONcombinedData){
 		currentAngleDegsMag = Math.round(currentAngleDegsMag) +" ("+currentCompassPoint+")";
 	}
 	effect = Math.round((dampedValues.SOG -dampedValues.log)*10)/10;	 
-	
-	
-	// display start-line details
-	var cosLatRatio = Math.cos(startLinePoints.boatLat*Math.PI/180);
-	var boat={} ;
-	var pin = {};
-	yacht.xMtrs = dampedValues.lat *degs2metres;	
-	yacht.yMtrs = dampedValues.lon * cosLatRatio*degs2metres;
-	boat.xMtrs = startLinePoints.boatLat *degs2metres;	
-	boat.yMtrs = startLinePoints.boatLon * cosLatRatio*degs2metres;
-	pin.xMtrs = startLinePoints.pinLat *degs2metres;
-	pin.yMtrs = startLinePoints.pinLon * cosLatRatio*degs2metres;
-	yacht.xMtrs -= boat.xMtrs; 
-	yacht.yMtrs -= boat.yMtrs; 
-	pin.xMtrs -= boat.xMtrs; 
-	pin.yMtrs -= boat.yMtrs; 
-	boat.xMtrs = 0;
-	boat.yMtrs = 0;
-	//(B) Rotate Yacht round Boat->Pin	
-	pin.r = Math.sqrt(pin.xMtrs*pin.xMtrs + pin.yMtrs*pin.yMtrs ) ; // line length, == 
-	pin.theta = Math.atan2(pin.yMtrs, pin.xMtrs);
-	yacht.r = Math.sqrt(yacht.xMtrs*yacht.xMtrs + yacht.yMtrs*yacht.yMtrs );
-	yacht.theta = Math.atan2(yacht.yMtrs, yacht.xMtrs);	
-	yacht.xMtrs = yacht.r*Math.cos(yacht.theta - pin.theta);
-	yacht.yMtrs = yacht.r*Math.sin(yacht.theta - pin.theta);
-	pin.xMtrs = pin.r;
-	pin.yMtrs = 0;
-
-	var TwdRotatedRads  = (Number(dampedValues.TWD) + LOCAL_MAG_VAR)* Math.PI/180 - pin.theta; // true wind direction (True) Rads rotated to line
-	var twdRotatedDegs = TwdRotatedRads*180/Math.PI; // TWD rotated to Start Line
-	twdRotatedDegs += 360*(twdRotatedDegs<0?1:(twdRotatedDegs>360?-1:0)); // normalize to -0<=x<=360
-	var lineBias = Math.round((twdRotatedDegs - 90 ));
-	HDGr = dampedValues.COG* Math.PI/180 - pin.theta; //reach heading True rotated to line
-	HDGr += 2*Math.PI*(HDGr < 0?1:HDGr > 2* Math.PI?-1:0);
-	BTVr = dampedValues.SOG * knotsToMps ; // reach speed, over the ground in m/s
-
-	var MAX_BIAS_ANGLE_FOR_UPWIND = upwindTarget.TWAt*180/Math.PI;
-	var prefEnd, prefDist;
-	if (Math.abs(lineBias)<MAX_BIAS_ANGLE_FOR_UPWIND) { //upwind
-		prefEnd = (lineBias>=0?"BOAT":"PIN");
-		prefDist = Math.abs(Math.round(pin.r * Math.cos(TwdRotatedRads)));
+	var msgObj = {};
+	if (watchPhase == "start"){	// display start-line details and solution
+		if (startLinePoints.boatLat === undefined) // not till response from startLine HTTP request
+			return;	
+		 msgObj = calcStartSolution(formattedReportTime);
 	}
-	else{
-		prefEnd = "Dn Wind";
-		prefDist= " ";
-	}
-	var reachTWADegs = 90 +lineBias;
-	var reachSpeedKts = calcReachBTV(dampedValues.TWS, reachTWADegs );
- 
+		
 	for (var prevValuesIdx in prevValues) // e previous values
 		prevValues[prevValuesIdx] = dampedValues[prevValuesIdx];
-
-	// Starting Time & Distance Solution
-	//var secondsToStart = (startTime - presentPosData.timeMs)/1000; 
-	yacht.zSecs = (presentPosData.timeMs -startTime )/1000; // time to go, -ve to zero to , 
-	//console.log(" yacht.zSecs: "+ yacht.zSecs  );
-	if (yacht.zSecs < 300) {//timer has been activated: if stopped, it's a big positive number, if we're 5 mins late for the line it's - 5*60 = 300 		
-		if (startLinePoints.boatLat !== undefined) // not till response from startLine HTTP request
-			calcStartSolution();
-	}
-	else {
-		//document.getElementById("solutionStatus").innerText = "Timer not running";
-		
-		calcStartSolution(); // display start line data and keep displaying till we're over the line!
-	}
-	var msgObj = {};
 	//console.log("window: "+selectedWindow);
-	if (selectedWindow == "start_line"){
-		msgObj = {"0":  formattedReportTime, //GPS Time
-			"45" :"Len (m) " + Math.round(pin.r), //LINELENGTH
-			"46" : "Bias " + lineBias, //LINEBIAS
-			"47" : "Pref " + prefEnd, //PREFEND
-			"48" : "By (m) " + prefDist, //PREFDIST
-			"49" : "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps), // LINETIME
-			"50" : "At "	+ Math.round(reachSpeedKts*10)/10, // LINESPEED	
-				};
-	}
-		if (selectedWindow == "start_solution"){
-		msgObj = {
-			"51" : (yacht.zSecs < 300?secondsToMinSecs(-yacht.zSecs) + " to START" :formattedReportTime) // VTIMER
-				};
-	}
-	else if  (selectedWindow == "performance"){
+
+	if  (selectedWindow == "performance"){
 		/*	GPSTIME,	PERFPCDISP, 	PERFACTUALBTV, 	PERFTGTBTV,	PERFACTUALTWA,	PERFTGTTWA,	PERFACTUALVMG,
 	PERFTGTVMG,	TWS,	TWD*/
-	msgObj = { "0":  formattedReportTime, //GPS Time
-		 "1": "Log "+ dampedValues.log, //PERFACTUALBTV
+		msgObj = {
+		"1": "Log "+ dampedValues.log, //PERFACTUALBTV
 		"2": "Act TWA "+Math.abs(dampedValues.TWA), //PERFACTUALTWA	
 		"3": "TWS " + dampedValues.TWS , //TWS
 		"4": "TWD "+  dampedValues.TWD, //TWD
@@ -623,21 +743,37 @@ function dispData(JSONcombinedData){
 			 };
 	}
 	else  if  (selectedWindow == "navigation"){	
-		/*	GPSTIME, 	SOG,	COG,	PERFACTUALBTV,	COMPASS,	CURRENTHDG ,	CURRENTSPEED ,	CURRENTDIR ,	CURRENTEFFECT  ,
-	DEPTH,	TEMP NEXTLEGDESC,	NEXTLEGNAME,	NEXTLEGHDG,	NEXTLEGTWA,	NEXTLEGTWSE,	NEXTLEGAWA,
-	NEXTLEGAWS GPSTIME,	WPTNAME,	WPTDISPDIST,	LAYLINEHDG,//Heading "Lay-line"	LAYLINEDIST,	LAYLINETIME,	BRGCLOCK,
-	BRGDEGS,	WPTVMG,	WPTBRGMAG,	WPTETI,	WPTETA*/
-		msgObj = { "0":  formattedReportTime, //GPS Time
+		msgObj = { 
 			"1": "Log "+ dampedValues.log, //PERFACTUALBTV
 			"5": "Tgt BTV " + perfTgtBTV, //PERFTGTBTV
 			"10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,//SOG
 			"11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs, //COG
+			"25" : "Temp " + Number(presentPosData.wTemp), //water temp TEMP
+			"26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
+			"32" : "Hdg(M) " +compassDisp, //COMPASS
+			"33" : "Current: ", //section heading //CURRENTHDG
+			"34" : " Speed "+ currentSpeed,//CURRENTSPEED
+			"35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
+			"36" : " Effect "+ effect, //CURRENTEFFECT
+		};
+	}
+	else if (selectedWindow == "nav_next_mark"){
+		msgObj = {
 			"12" : presentPosData.legIdx+": "+ presentPosData.WptName, //WptName
 			"13" : "Dist " + wptDispDisp, // next mark distance WPTDISPDIST
 			"14" : "Brg C " +presentPosData.wptBearingClock , //BRGCLOCK
 			"15" : "Brg D " + presentPosData.wptBearingDegs,  //degrees relative to current heading  BRGDEGS
 			"16" : "VMG " + dampedValues.wptVMG ,// WPTVMG
-			"17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), //WPTBRGMAG
+			"17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), //WPTBRGMAG	
+			"27" : "ETI " + wptETI, //WPTETI
+			"28" : "ETA " + formattedWptETA,  //WPTETA
+			 "29" : "Lay-line:" ,  //LAYLINEHDG
+			"30" : "   Time "+ layLineTime, //LAYLINETIME
+			"31" : "   Dist " + layLineDist, //LAYLINEDIST
+			 };
+	}
+	else if (selectedWindow == "nav_next_leg"){
+		msgObj = {
 			"18" : nextLegText, //Next Lepoint of sailing NEXTLEGDESC
 			"19" : presentPosData.nextLegName, //next leg name NEXTLEGNAME
 			"20": "Hdg(M)" + Math.round(presentPosData.nextLegHDG), //next leg heading NEXTLEGHDG
@@ -645,69 +781,14 @@ function dispData(JSONcombinedData){
 			"22" : "TWS " +  dampedValues.TWS,  //NEXTLEGTWS
 			"23" : "AWA "+ nextLegAWADisp, //NEXTLEGAWA
 			"24" : "AWS " +nextLegAWSDisp, //NEXTLEGAWS
-			"25" : "Temp " + Number(presentPosData.wTemp), //water temp TEMP
-			"26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
-			"27" : "ETI " + wptETI, //WPTETI
-			"28" : "ETA " + formattedWptETA,  //WPTETA
-			"29" : "Lay-line" ,  //LAYLINEHDG
-			"30" : "   Time "+ layLineTime, //LAYLINETIME
-			"31" : "   Dist " + layLineDist, //LAYLINEDIST
-			"32" : "Hdg(M) " +compassDisp, //COMPASS
-			"33" : "Current: ", //section heading //CURRENTHDG
-			"34" : " Speed "+ currentSpeed,//CURRENTSPEED
-			"35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
-			"36" : " Effect "+ effect, //CURRENTEFFECT
-	};
+		};
 	}
-else {
-		msgObj = { "0":  formattedReportTime, //GPS Time
-					   "1": "Log "+ dampedValues.log, //PERFACTUALBTV
-						   "2": "Act TWA "+Math.abs(dampedValues.TWA), //PERFACTUALTWA					  
-						   "3": "TWS " + dampedValues.TWS , //TWS
-						   "4": "TWD "+  dampedValues.TWD, //TWD
-						   "5": "Tgt BTV " + perfTgtBTV, //PERFTGTBTV
-						   "6": "TgT TWA " + perfTgtTWA, //PERFTGTTWA
-						   "7": "TgT VMG " + perfTgtVMG,  // PERFTGTVMG
-						   "8": "Act VMG " + perfActualVMG, //PERFACTUALVMG
-						   "9": perfPcDisp, //PERFPCDISP
-						   "10": "SOG " +  Math.round(dampedValues.SOG*10)/10 ,//SOG
-						   "11": "COG(M) "+(COGMagDegs<10?"00":(COGMagDegs<100?"0":""))+COGMagDegs, //COG
-						   "12" : presentPosData.legIdx+":"+ presentPosData.WptName, //WptName
-						   "13" : "Dist " + wptDispDisp, // next mark distance
-						   "14" : "Brg C " +presentPosData.wptBearingClock ,
-						   "15" : "Brg D " + presentPosData.wptBearingDegs,  //degrees relative to current heading 
-						   "16" : "VMG " + dampedValues.wptVMG ,//wptVMG
-						   "17" : "Brg(M) "+ Math.round(dampedValues.wptBrgTrue -LOCAL_MAG_VAR), //WPTBRGMAG
-						   "18" : nextLegText, //Next Lepoint of sailing NEXTLEGDESC
-						   "19" : presentPosData.nextLegName, //next leg name NEXTLEGNAME
-						   "20": "Hdg(M)" + Math.round(presentPosData.nextLegHDG), //next leg heading NEXTLEGHDG
-						   "21" : "TWA "+ nextLegTWA, // NEXTLEGTWA
-						   "22" : "TWS " +  dampedValues.TWS, 
-						   "23" : "AWA "+ nextLegAWADisp,
-						   "24" : "AWS " +nextLegAWSDisp,
-						   "25" : "Temp " + Number(presentPosData.wTemp), //water temp TEMP
-						   "26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
-						   "27" : "ETI " + wptETI, //formatted eti
-						   "28" : "ETA " + formattedWptETA, 
-						   "29" : "Lay-line" , //Heading
-						   "30" : "   Time "+ layLineTime,
-						   "31" : "   Dist " + layLineDist,
-						   "32" : "Hdg(M) " +compassDisp, //COMPASS
-						   "33" : "Current", //heading //CURRENTHDG
-						   "34" : " Speed "+ currentSpeed,//CURRENTSPEED
-						   "35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
-						   "36" : " Effect "+ effect, //CURRENTEFFECT
-						   // #37 used for current course
-						   "45" :"Len (m) " + Math.round(pin.r), //LINELENGTH
-						   "46" : "Bias " + lineBias, //LINEBIAS
-						   "47" : "Pref " + prefEnd, //PREFEND
-						   "48" : "By (m) " + prefDist, //PREFDIST
-						   "49" : "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps), // LINETIME
-						   "50" : "At "	+ Math.round(reachSpeedKts*10)/10, // LINESPEED	
-						   "51" : (yacht.zSecs < 300?secondsToMinSecs(-yacht.zSecs) + " to START" :formattedReportTime) // VTIMER
-					  
-		 };
-		}
+	// always tack these on for the Navigation Menu
+	msgObj[ "0"] = formattedReportTime; //GPS Time
+	msgObj["12"] =  presentPosData.legIdx+": "+ presentPosData.WptName; //WptName
+	msgObj["19"] =  presentPosData.nextLegName; //next leg name NEXTLEGNAME
+
+
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "sendAppMessage");
  	Pebble.sendAppMessage(msgObj, function(e) { //Success callback
 			lastPolledTimeStamp = Date.now();	//managing the polling process
@@ -748,7 +829,8 @@ function calcDownwindTargets(){
 	for (var tgtIdx = 0; tgtIdx < targetTWS.length; tgtIdx++ ){ // find the tacking speed and angle for this TWS. Assumes TWS between 0 and 35, reasonable?
 		if ( dampedValues.TWS <= targetTWS [tgtIdx]){
 			var mRange = targetTWS[tgtIdx] - targetTWS[tgtIdx -1]; // dist min to max of current wind range
-			var mScale = (dampedValues.TWS -targetTWS[tgtIdx -1])/mRange; //ratio of where current  wind speed lies in the range
+			var mScale = (
+				-targetTWS[tgtIdx -1])/mRange; //ratio of where current  wind speed lies in the range
 			target.TWA = Number(targetDownwindTWAs[tgtIdx -1]) + mScale * (targetDownwindTWAs[tgtIdx] -targetDownwindTWAs[tgtIdx -1]); //degrees
 			target.TWAt = target.TWA*Math.PI/180; //assume linear range	Radians		
 			target.BTV = (Number(targetDownwindSpeeds[tgtIdx -1]) + mScale * (targetDownwindSpeeds[tgtIdx] -targetDownwindSpeeds[tgtIdx -1]) ); //Knots
@@ -758,6 +840,8 @@ function calcDownwindTargets(){
 			break;} }
 	return target;
 }
+
+		
 /**
  * returns the crossover TWA (degrees)
  * where a kite performs better than a jib in the current TWS.
@@ -991,13 +1075,19 @@ function testHttpFlags(flag){
 			settingsText += courses.clubs[settings.clubIdx]
 				.series[settings.seriesIdx]
 				.courses[0]  //assume all courses in the series have the same divisions, so 
-				.divisions[settings.divIdx].name;					
-		settingsText  += "\nMag Var'n: ";
-		if (settings.magVar === undefined)
-			settings.magVar=0;
-		settingsText +=  settings.magVar;			
-		LOCAL_MAG_VAR = Number(courses.clubs[settings.clubIdx].magVar);
-		//console.log("Magnetic Variation: "+LOCAL_MAG_VAR);
+				.divisions[settings.divIdx].name;		
+		
+		LOCAL_MAG_VAR = Number(courses.clubs[settings.clubIdx].magVar);settingsText += "\nLOCAL_MAG_VAR: "+LOCAL_MAG_VAR;
+		if (settings.yachtLength === undefined)
+			settings.yachtLength = 12;
+		YACHT_LENGTH  = settings.yachtLength; settingsText += "\nYACHT_LENGTH: "+YACHT_LENGTH;
+		if (settings.gpsBehindBow === undefined)
+			settings.gpsBehindBow = 8;
+		GPS_BEHIND_BOW= settings.gpsBehindBow; settingsText += "\nGPS_BEHIND_BOW: "+GPS_BEHIND_BOW;
+		if (settings.perfStyle === undefined)
+			settings.perfStyle = 2;
+		STYLE = settings.perfStyle;settingsText += "\nSTYLE: "+STYLE;
+		//console.log(settingsText);
 		//Pebble.showSimpleNotificationOnPebble("Data loaded:",settingsText); 
 		flagDataLoaded();
 
@@ -1021,4 +1111,5 @@ function flagDataLoaded( ){
 				setTimeout(function(){flagDataLoaded();},1000);
 				}
 	);	
-}
+}	
+

@@ -74,7 +74,8 @@ void nav_menu_window_appear(){
  	num_a_items = 0;
  	nav_menu_items[num_a_items++].subtitle = wptName;
  	nav_menu_items[num_a_items++].subtitle = nextLegName; 
-	send_to_phone(TupletCString(100, "navigation"));
+
+
 }
 void nav_menu_window_unload(Window *mWindow) {// Deinitialize resources on window unload that were initialized on window load
 	window_destroy(mWindow);
