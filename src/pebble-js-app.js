@@ -1,7 +1,7 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
 //var WEB_HOST = "http://192.168.0.6:8080/dev/";	
 //var WEB_HOST = "http://192.168.43.1:8080/dev/";
-var WEB_HOST = "http://localhost:8080/dev/";
+var WEB_HOST = "http://localhost:8080/dashboard/";
 var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
 Pebble.addEventListener("showConfiguration",
   function(e) {
@@ -679,7 +679,7 @@ function dispData(JSONcombinedData){
 		wptETA =" ";
 	} 
 	var compassDisp = (dampedValues.compass<10?"00":(dampedValues.compass<100?"0":""))+Math.round(dampedValues.compass);
-		// Calc and display current/tide set
+	// Calc and display current/tide set 
 	var currentSpeed, currentAngleDegsMag, currentCompassPoint, effect;
 	var ARads = ( dampedValues.COG - (Number(dampedValues.compass) + LOCAL_MAG_VAR)) * Math.PI/180; // GPS COG - compass Hdg 
 	var currentSpeedKts = Math.sqrt(dampedValues.log*dampedValues.log + dampedValues.SOG* dampedValues.SOG -
@@ -716,6 +716,16 @@ function dispData(JSONcombinedData){
 		currentAngleDegsMag = Math.round(currentAngleDegsMag) +" ("+currentCompassPoint+")";
 	}
 	effect = Math.round((dampedValues.SOG -dampedValues.log)*10)/10;	 
+	
+	/*
+	Current in the TO- direction, opposite of wind
+	 1m: SSW-1.2 34
+	 5m: S- 2.5  35
+	 20m: NE 0.2  36 */
+	 
+	 
+	 
+	 
 	var msgObj = {};
 	if (watchPhase == "start"){	// display start-line details and solution
 		if (startLinePoints.boatLat === undefined) // not till response from startLine HTTP request
@@ -736,8 +746,8 @@ function dispData(JSONcombinedData){
 		"3": "TWS " + dampedValues.TWS , //TWS
 		"4": "TWD "+  dampedValues.TWD, //TWD
 		"5": "Tgt BTV " + perfTgtBTV, //PERFTGTBTV
-		"6": "TgT TWA " + perfTgtTWA, //PERFTGTTWA
-		"7": "TgT VMG " + perfTgtVMG, //PERFTGTVMG
+		"6": "Tgt TWA " + perfTgtTWA, //PERFTGTTWA
+		"7": "Tgt VMG " + perfTgtVMG, //PERFTGTVMG
 		"8": "Act VMG " + perfActualVMG, //PERFACTUALVMG
 	 	"9": perfPcDisp, //PERFPCDISP
 			 };
@@ -752,9 +762,14 @@ function dispData(JSONcombinedData){
 			"26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
 			"32" : "Hdg(M) " +compassDisp, //COMPASS
 			"33" : "Current: ", //section heading //CURRENTHDG
+			/*
 			"34" : " Speed "+ currentSpeed,//CURRENTSPEED
 			"35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
 			"36" : " Effect "+ effect, //CURRENTEFFECT
+			*/
+			"34": presentPosData.current1, //Current 1 minute
+			"35": presentPosData.current5, //Current 5 minute
+			"36": presentPosData.current20, //Current 20 minute
 		};
 	}
 	else if (selectedWindow == "nav_next_mark"){
@@ -985,9 +1000,10 @@ function get_all_courses(){
 					// upload_all_courses(mSeriesList,seriesIdx ); OBSOLETE with configuration settings determining club & series
  					testHttpFlags(6); //Here to manage obsolescence of upload_all_courses
 					//get_current_course();
+					//Pebble.showSimpleNotificationOnPebble("get_all_coursesRequest: ",get_all_coursesRequest.responseText);
 					testHttpFlags(4);testHttpFlags(7); //obsolete  get_current_course
 					//populateDivsFromSeries(); //populate div/course list
-					setTimeout(function(){populateDivsFromSeries();},500); //work-around for occasional latency issue
+					setTimeout(function(){populateDivsFromSeries();},1000); //work-around for occasional latency issue
 				}
 				else
 					Pebble.showSimpleNotificationOnPebble("HTTP Fail(3)", "Check that your web server is running");

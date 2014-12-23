@@ -17,8 +17,10 @@ int mcount=0;
 //static int dispCounter=0;
 static bool isEB = false;
  static void in_received_handler(DictionaryIterator *iter, void *context) {
-	 //snprintf(Msg,60, "in_received START - mAns[WPTNAME] :  %s ", mAns[WPTNAME]);
-	//APP_LOG(APP_LOG_LEVEL_DEBUG,Msg);
+	 //if ( heap_bytes_free()<300){
+	 	//snprintf(Msg,60, "Free heap :  %d ",heap_bytes_free());
+		//APP_LOG(APP_LOG_LEVEL_DEBUG,Msg);
+	 //}
 
 	 dataReceived =dict_read_first(iter);
 	 while (dataReceived != NULL){
@@ -50,6 +52,7 @@ static bool isEB = false;
 			 	break;
 			 case FLAGDATALOADED: //special case when data is loaded		 	
 			 	splashScreenMessage = "   'bye, thanks.";
+			 window_stack_pop(true); //close the splash window
 			 	show_main_menu();
 			 	//APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
 			 	break;
@@ -158,11 +161,11 @@ void send_to_phone(Tuplet tuple) {
 	//APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
 }
 void in_dropped_handler(AppMessageResult reason, void *context) {
-	/*
+	
 	char  buff[100];
 	 snprintf(buff, 100, "in_dropped_handler: %s", translate_error(reason));
 	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
-	*/
+	
  }
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
   	char  buff[100];
@@ -198,7 +201,8 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
 	app_message_register_outbox_failed(outbox_failed_callback);
 	app_message_register_outbox_sent(outbox_sent_callback);
 	const uint32_t inbound_size = app_message_inbox_size_maximum();
-	const uint32_t outbound_size = app_message_outbox_size_maximum();
+	//const uint32_t outbound_size = app_message_outbox_size_maximum();
+	const uint32_t outbound_size =30;
    	app_message_open(inbound_size, outbound_size);
 
 }
