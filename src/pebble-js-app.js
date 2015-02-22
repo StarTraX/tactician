@@ -1,11 +1,13 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
 //var WEB_HOST = "http://192.168.0.6:8080/dev/";	
 //var WEB_HOST = "http://192.168.43.1:8080/dev/";
+//var TACTICIAN_HOST = "http://gpsanimator.com/tactician/pebbleConfig";
 var WEB_HOST = "http://localhost:8080/dashboard/";
 var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
 Pebble.addEventListener("showConfiguration",
   function(e) {
-	var pebbleConfigURL = WEB_HOST+"pebbleConfig.php";
+	//var pebbleConfigURL = WEB_HOST+"pebbleConfig.php";
+	var pebbleConfigURL = "http://gpsanimator.com/tactician/pebbleConfig";
 	Pebble.openURL(pebbleConfigURL);
 	}
 ); //addEventListener showConfiguration
@@ -13,23 +15,44 @@ var settings = {};
 Pebble.addEventListener('webviewclosed',
 					
   function(e) {
-	  //console.log('webviewclosed' + e.response);
-	  if (e.response != "cancel"){
-		settings = e.response; // it's assumed to be a JSON object
-	  	load_data();	  
-	  }
+	 //console.log('webviewclosed' + e.response);
+	if (e.response != "cancel"){
+			  settings = e.response;
+			//  load_data();
+	//}// if
+		var config = JSON.parse(e.response); // it's assumed to be a JSON object
+		settings = config.settings;
+		//console.log (JSON.stringify(config.configData));
+		var mRequest = new XMLHttpRequest(); 
+		var mURL =  WEB_HOST + "configData.php"; //sends json object
+		 mRequest = new XMLHttpRequest(); //for navStart.php		
+		var params = "configData="+encodeURI(JSON.stringify(config.configData));
+		mRequest.open("POST", mURL, true);
+		mRequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		mRequest.setRequestHeader("Content-length", params.length);
+		mRequest.setRequestHeader("Connection", "close");
+		mRequest.send(params);
+		mRequest.onreadystatechange = function () {
+			if (mRequest.readyState == 4 && mRequest.status == 200 ){
+				var resp = mRequest.responseText;	
+				console.log ("configData response: "+resp);
+				load_data();	
+			} // if readyState == 4
+		}; //onreadystatechange	  
+	} // if not cancel
+}//anonymous function
+	  
     //Pebble.showSimpleNotificationOnPebble('Configuration window returned: ');
-  }
 );
 Pebble.addEventListener("ready",
   function(e) {	 
-	  /*DEBUG send to phone*/
 	  // Pebble.showSimpleNotificationOnPebble("Data loading","Please wait for \"Data Loaded\". "+
 		//								  " If long delay, restart Tactician.");
 	  load_data();	  
 
   }// eventListener callback
 );//addEventListener ready
+
 var watchPhase, selectedWindow, presentPosData, startLinePoints;
 Pebble.addEventListener("appmessage",						
 	 function(e) {
@@ -38,7 +61,7 @@ Pebble.addEventListener("appmessage",
 		for (var msgIdx in e.payload ){
 			if (msgIdx == 100){ // selected WINDOW 
 				selectedWindow = e.payload[msgIdx];
-				console.log("received: "+selectedWindow);
+				//console.log("received: "+selectedWindow);
 				if (selectedWindow.substr(0,5)=="start" )
 					watchPhase = "start";
 				else if (selectedWindow.substr(0, 4) =="perf" )
@@ -123,7 +146,7 @@ function secondsToMinSecs( mSeconds){
 }
 
 function set_course(courseIdx){
-	//console.log("set_course: "+courseIdx);
+	console.log("set_course: "+courseIdx);
 	var url = WEB_HOST + "pebbleGetCourses.php?set_course="+courseIdx; 
 	var set_courseRequest = new XMLHttpRequest(); 
 	set_courseRequest.open("GET", url, true);	
@@ -141,42 +164,38 @@ function set_course(courseIdx){
 }
 
 var httpFlags = 0; //1: polars, 2, division, 4:all course, 8: current course
-var polars;
-
 var readPolarsRequest = new XMLHttpRequest(); //for read Polars data
-var polars = [];
-var targetTWS = [];
-var polarAngles = [];
-var targetUpwindTWAs, targetUpwindSpeeds, targetDownwindTWAs,targetDownwindSpeeds, targetMinTwaForKite;
-
+var targets, starting; // objects holding racing and starting [polars]
 function readPolars(){
-	//Pebble.showSimpleNotificationOnPebble("DEBUG","HERE");
-	var url = WEB_HOST + "pebbleGetPolars.php"; // gets polars in a json string
+	readThesePolars("racing");
+	//readThesePolars("starting");  //done on success of HTTP
+}
+function readThesePolars(whichPolars){
+	//Pebble.showSimpleNotificationOnPebble("readPolars",whichPolars);
+	var url = WEB_HOST + "pebbleGetPolars.php?"+ whichPolars ; // gets polars in a json string
 	readPolarsRequest.open("GET", url, true);
 	readPolarsRequest.send(null);
 	readPolarsRequest.onreadystatechange = function () {
 		  if (readPolarsRequest.readyState == 4 ){
 			   	if(readPolarsRequest.status == 200){ // or 404 not found
 				   	var mData = readPolarsRequest.responseText;
+					//Pebble.showSimpleNotificationOnPebble("readPolarsRequest.responseText",readPolarsRequest.responseText);
 				   	if (mData.length >0){
 						var polarArray = JSON.parse(readPolarsRequest.responseText);
-						for (var colIdx=1; colIdx < polarArray[0].length; colIdx ++ ) // top row from second column has TWS
-							targetTWS[colIdx -1] = polarArray[0][colIdx];
-						for (var rowIdx=1; rowIdx <polarArray.length; rowIdx ++ ) // left hand column has polar angles
-							polarAngles[rowIdx -1] = polarArray[rowIdx][0];
-						for ( rowIdx = 1; rowIdx < polarArray.length; rowIdx++){ // set up central polars array
-							polars[rowIdx-1] = [];
-							for ( colIdx = 1; colIdx < polarArray[0].length; colIdx++)
-								polars[rowIdx -1][colIdx-1] = polarArray[rowIdx][colIdx];
+						if (whichPolars=="racing")
+							targets = new polarClass(polarArray);
+							//Pebble.showSimpleNotificationOnPebble("targets.UpwindTWAs[1]: ",targets.upwindTWAs[1]);
+						else if (whichPolars=="starting"){
+							starting = new polarClass(polarArray);
+							//Pebble.showSimpleNotificationOnPebble("starting.UpwindTWAs[1]: ",starting.upwindTWAs[1]);
 						}
-						targetUpwindTWAs = polars[0];
-	 					targetUpwindSpeeds = polars[1];
-	 					targetDownwindTWAs = polars[2];
-	 					targetDownwindSpeeds = polars[3];
-	 					targetMinTwaForKite = polars[4];
-						
+						//debug 
+						//Pebble.showSimpleNotificationOnPebble("targets.UpwindTWAs[1]: ",targets.upwindTWAs[1]);
 					}// length > 0	
-					testHttpFlags(1);
+					if (whichPolars=="racing")
+						readThesePolars("starting");
+					else if (whichPolars=="starting")
+						testHttpFlags(1);
 				}//status == 200
 			  	else 
 				  Pebble.showSimpleNotificationOnPebble("HTTP Fail(1)","Check your web server is running");
@@ -206,7 +225,7 @@ var navDataFlag = false; // set while waiting for response
 //var startTime=0;  //when active, startTime is a  timeStamp (ms since epoch) of the start time
 
 //var styleDescs = [" ","Agressive","Standard","Defensive"];
-var styleRates = [100, 90, 83, 75];
+//var styleRates = [100, 90, 83, 75];
 var STYLE;  //set from Settings/Configuration
 var knotsToMps = 0.5144444; // convert knots to metres/sec
 var LOCAL_MAG_VAR ;  //set from courses.clubs[settings.clubIdx].magVar
@@ -235,6 +254,15 @@ function commsTimer(){
 	setTimeout(function(){commsTimer();},1000); 
 }
 function calcStartSolution(formattedReportTime, currentCourse){ // start line & solution
+	var startingTargets =starting.calcTargets(dampedValues.TWS); // use Target TWA and BTC for lay-line calc
+	//console.log("dampedValues.TWS: "+dampedValues.TWS);
+	/*console.log("startingTargets: .TWA: "+startingTargets.TWA+
+			" .TWAt: "+startingTargets.TWAt+ 
+			" .BTV: "+startingTargets.BTV +
+			" .VMG: "+startingTargets.VMG +
+			" .BTVt: "+startingTargets.BTVt
+			   ) ; */
+
 	var msgObj = {};
 	var cosLatRatio = Math.cos(startLinePoints.boatLat*Math.PI/180);
 	var boat={} ;
@@ -271,7 +299,7 @@ function calcStartSolution(formattedReportTime, currentCourse){ // start line & 
 	HDGr += 2*Math.PI*(HDGr < 0?1:HDGr > 2* Math.PI?-1:0);  //normalize to 0<=x<=2pi
 	BTVr = dampedValues.SOG * knotsToMps ; // current speed, over the ground in m/s
 
-	var MAX_BIAS_ANGLE_FOR_UPWIND = upwindTarget.TWAt*180/Math.PI; // in degrees
+	var MAX_BIAS_ANGLE_FOR_UPWIND = startingTargets.TWAt*180/Math.PI; // in degrees
 	var prefEnd, prefDist;
 	var lineTime, lineSpeed;
 	var solutionTime = ""; // time to tack(off wind) or time to line (Beat)
@@ -287,7 +315,8 @@ function calcStartSolution(formattedReportTime, currentCourse){ // start line & 
 		prefEnd = (lineBias>=0?"BOAT":"PIN");
 		prefDist = Math.abs(Math.round(pin.r * Math.cos(TwdRotatedRads)));
 		var reachTWADegs = 90 +lineBias;
-		var reachSpeedKts = calcReachBTV(dampedValues.TWS, reachTWADegs )*styleRates[STYLE]/100;
+		var reachSpeedKts = starting.calcReachBTV(dampedValues.TWS, reachTWADegs );
+		//console.log("reachSpeedKts: "+reachSpeedKts);
 		lineTime = "Time " + Math.round(pin.r/reachSpeedKts/knotsToMps); // LINETIME
 		lineSpeed = "At "	+ Math.round(reachSpeedKts*10)/10; // LINESPEED					
 		// Starting Time & Distance Solution
@@ -319,13 +348,13 @@ function calcStartSolution(formattedReportTime, currentCourse){ // start line & 
 				}			
 			}// over the line
 			else { // behind the line				
-				if ((HDGr <= TwdRotatedRads+ upwindTarget.TWAt && //between start to luff on Port and 20 degs eased on stbd
-				  HDGr >= TwdRotatedRads - upwindTarget.TWAt - 0.35 ) ||// we have started to tack onto,  or are on,  stbd tack. .35 ~=20 deg's					solutionStatus = "Beat to the line";
+				if ((HDGr <= TwdRotatedRads+ startingTargets.TWAt && //between start to luff on Port and 20 degs eased on stbd
+				  HDGr >= TwdRotatedRads - startingTargets.TWAt - 0.35 ) ||// we have started to tack onto,  or are on,  stbd tack. .35 ~=20 deg's					solutionStatus = "Beat to the line";
 				  yacht.zSecs > -45){// OR inside 45 sec's so it continues to do T&D if we bear away
 					solutionStatus="FINAL BEAT!";
-					var theoreticalDistToLine = -yacht.yMtrs/Math.sin(TwdRotatedRads - upwindTarget.TWAt)  - GPS_BEHIND_BOW  ; // dist (mtres) based on location and Target TWA + pos of GPS from bow
+					var theoreticalDistToLine = -yacht.yMtrs/Math.sin(TwdRotatedRads - startingTargets.TWAt)  - GPS_BEHIND_BOW  ; // dist (mtres) based on location and Target TWA + pos of GPS from bow
 					var boatsFromLine = Math.round(10*theoreticalDistToLine / YACHT_LENGTH)/10  ; // our yacht length rounded to 1 decimal
-					var timeToBurn = Math.round(-yacht.zSecs - theoreticalDistToLine/ upwindTarget.BTVt); // +ve: EARLY, -ve: LATE
+					var timeToBurn = Math.round(-yacht.zSecs - theoreticalDistToLine/ startingTargets.BTVt); // +ve: EARLY, -ve: LATE
 					solutionTime =  (timeToBurn>0?"BURN "+ timeToBurn : "LATE by " + (-timeToBurn));
 					solutionPos = boatsFromLine + " boats" ;
 				}
@@ -335,8 +364,8 @@ function calcStartSolution(formattedReportTime, currentCourse){ // start line & 
 					var TWAToEnd =Math.abs(TwdRotatedRads - Math.atan2(yacht.yMtrs, (pin.xMtrs - yacht.xMtrs)))*180/Math.PI;
 					//console.log("TWATo Pin: "+TWAToEnd );
 					var BTVToEnd; 
-					if (TWAToEnd> upwindTarget.TWAt){ // reach to the pin
-						BTVToEnd= calcReachBTV(dampedValues.TWS, TWAToEnd )*knotsToMps*styleRates[STYLE]/100;		//mps	
+					if (TWAToEnd> startingTargets.TWAt){ // reach to the pin
+						BTVToEnd=starting.calcReachBTV(dampedValues.TWS, TWAToEnd )*knotsToMps;		//mps	
 						yacht.timeToPin = Math.sqrt((yacht.xMtrs -pin.xMtrs) *(yacht.xMtrs -pin.xMtrs) + yacht.yMtrs*yacht.yMtrs)/BTVToEnd;
 					}
 					else  //work to the pin}
@@ -344,8 +373,8 @@ function calcStartSolution(formattedReportTime, currentCourse){ // start line & 
 					// time to BOAT
 					TWAToEnd =Math.abs(TwdRotatedRads - Math.atan2(yacht.yMtrs, yacht.xMtrs))*180/Math.PI;
 					//console.log("TWATo BOAT: "+TWAToEnd );
-					if (TWAToEnd> upwindTarget.TWAt){ // reach to the BOAT
-						BTVToEnd= calcReachBTV(dampedValues.TWS, TWAToEnd )*knotsToMps;		//mps	
+					if (TWAToEnd> startingTargets.TWAt){ // reach to the BOAT
+						BTVToEnd= starting.calcReachBTV(dampedValues.TWS, TWAToEnd )*knotsToMps;		//mps	
 						yacht.timeToBoat = Math.sqrt(yacht.xMtrs *yacht.xMtrs + yacht.yMtrs*yacht.yMtrs)/BTVToEnd;
 					}
 					else  //work to the pin}
@@ -367,14 +396,15 @@ function calcStartSolution(formattedReportTime, currentCourse){ // start line & 
 					// now, calc line pos from this pos'n and heading
 					if (HDGr > 3*Math.PI/2){// going away, so no solution:
 						solutionTime = "On Stbd tack, ";
-						solutionPos = "no sol'n yet.";
+						solutionPos = "Going away.";
 					}
 					else { // not heading away, so calculate start line solution
 						var Q ={}; 	 
 						// Calculations algorithm
-						var beatAngle = TwdRotatedRads - upwindTarget.TWAt; //Target beat angle to the line (rads)
+						var beatAngle = TwdRotatedRads - startingTargets.TWAt; //Target beat angle to the line (rads)
 						var m1 = Math.tan(beatAngle); // true wind angle (grad) of the beat to the line
-						var m2 = upwindTarget.BTVt*Math.sin(beatAngle);  // beat speed to the line (m/s)
+						var m2 = startingTargets.BTVt*Math.sin(beatAngle);  // beat speed to the line (m/s)
+						//console.log("m2: "+m2) ;
 						var m3 = Math.tan(HDGr); //reach angle to line
 						var c3 = yacht.yMtrs - m3*yacht.xMtrs ;
 						var m4 = BTVr*Math.sin(HDGr); 
@@ -480,14 +510,8 @@ function dampAngle(prevVal, thisVal){
 	return dampedValue;
 }
 var missedCyclesGPS = 0 ; // counts the number of times the server has failed to update the GPS time
-var missedCyclesTWS = 0 ; // counts the number of times the server has failed to update the TWS
 var prevTimeMs = 0;
-var prevTWS = 0; //to spot missing Wind data
-var damping=3;
-var MISSED_CYCLES_ALERT_LIMIT = 20; // number of missed cycles (in seconds) before starting the screen flash
 
- 
-var  pollCounter = 0;
 function dispData(JSONcombinedData){
 		
 	//Pebble.showSimpleNotificationOnPebble("dispData received", JSONcombinedData);
@@ -533,8 +557,8 @@ function dispData(JSONcombinedData){
 	//Pebble.showSimpleNotificationOnPebble("DEBUG","HERE");
 
 	//PERFORMANCE stuff.
-	upwindTarget = calcTargets(); // use Target TWA and BTC for lay-line calc
-	downwindTarget = calcDownwindTargets(); //DOWNwind targets
+	upwindTarget = targets.calcTargets(dampedValues.TWS); // use Target TWA and BTC for lay-line calc
+	downwindTarget = targets.calcDownwindTargets(dampedValues.TWS); //DOWNwind targets
 	var TWAToMark = dampedValues.TWA - presentPosData.wptBearingDegs; // TWA of direct course from current pos to mark
 	TWAToMark+=360*(TWAToMark <-180?1:(TWAToMark>180?-1:0));
 	var pointOfSailing;	// Decide which polars to use depending on TWA to mark
@@ -564,12 +588,12 @@ function dispData(JSONcombinedData){
 	}
 	else { //Reaching
 		//Pebble.showSimpleNotificationOnPebble("DEBUG", "Jib reach");
-		if ( Math.abs(TWAToMark)< calcJibKiteCrossoverTwa())
+		if ( Math.abs(TWAToMark)< targets.calcJibKiteCrossoverTwa(dampedValues.TWS))
 			pointOfSailing = "Jib reach";
 		else 
 			pointOfSailing = "Shy kite";
 
-		var tgtBTV = calcReachBTV(dampedValues.TWS, dampedValues.TWA );
+		var tgtBTV = targets.calcReachBTV(dampedValues.TWS, dampedValues.TWA );
 		//	Pebble.showSimpleNotificationOnPebble("DEBUG", "calcReachBTV");
 	
 
@@ -596,25 +620,25 @@ function dispData(JSONcombinedData){
 		// what is the next leg: Beat, jib reach, Kite reach, kite downwind (with gybes)?
 		nextLegTWA = Math.round(dampedValues.TWD - presentPosData.nextLegHDG) ; //nextLegHDG is deg's +ve is stbd tack/gybe
 		nextLegTWA += 360*(nextLegTWA <-180?1:(nextLegTWA >180?-1:0));
-		for (var twsIdx = 0; twsIdx < targetTWS.length; twsIdx++ ){
-			if 	(Math.abs(dampedValues.TWS) <=targetTWS[twsIdx] ){ // find the index for this TWS
+		for (var twsIdx = 0; twsIdx < targets.targetTWS.length; twsIdx++ ){
+			if 	(Math.abs(dampedValues.TWS) <=targets.targetTWS[twsIdx] ){ // find the index for this TWS
 				break;}}
 		nextLegText = "";
-		if (Math.abs(nextLegTWA) <= targetUpwindTWAs[twsIdx] ){ // a work
+		if (Math.abs(nextLegTWA) <= targets.upwindTWAs[twsIdx] ){ // a work
 			nextLegText =  "Beat";
-			apparent = calcApparent(dampedValues.TWS,upwindTarget.TWA, upwindTarget.BTV  );
+			apparent = calcApparent(dampedValues.TWS, upwindTarget.TWA, upwindTarget.BTV  );
 			nextLegAWADisp= Math.round(apparent.AWA);
 			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
 		}
-		else if (Math.abs(nextLegTWA) <= targetMinTwaForKite[twsIdx]){// jib reach
-			BTV = calcReachBTV(dampedValues.TWS, dampedValues.TWA );
+		else if (Math.abs(nextLegTWA) <= targets.minTwaForKite[twsIdx]){// jib reach
+			BTV = targets.calcReachBTV(dampedValues.TWS, dampedValues.TWA );
 			apparent = calcApparent(dampedValues.TWS, nextLegTWA, BTV  );
 			nextLegText = "Jib reach-" + (apparent.AWA >0?"Stbd":"Port") ;
 			nextLegAWADisp = Math.round(apparent.AWA);
 			nextLegAWSDisp = Math.round(apparent.AWS*10)/10;
 		}
-		else if (Math.abs(nextLegTWA) <= targetDownwindTWAs[twsIdx]) {// kite reach	
-			BTV = calcReachBTV(dampedValues.TWS, dampedValues.TWA );
+		else if (Math.abs(nextLegTWA) <= targets.downwindTWAs[twsIdx]) {// kite reach	
+			BTV = targets.calcReachBTV(dampedValues.TWS, dampedValues.TWA );
 			apparent = calcApparent(dampedValues.TWS, nextLegTWA, BTV  );
 			nextLegText = "Kite reach-"+(apparent.AWA >0?"Stbd":"Port") ;
 			nextLegAWADisp = Math.round(apparent.AWA);
@@ -647,8 +671,10 @@ function dispData(JSONcombinedData){
 			var layLine = calcLayLine( // * returns Obj. dist: metres* 	.time: seconds to lay-line *  .ETI : seconds to mark via lay-line
 				 presentPosData.WptDist, //nm
 				 markAngle,  // -180<= markAngle <180
-				 upwindTarget.TWAt*180/Math.PI,  // -180<TWA<180
-				 upwindTarget.BTVt /knotsToMps // knots
+				 //upwindTarget.TWAt*180/Math.PI,  // -180<TWA<180
+				 upwindTarget.TWA,  // -180<TWA<180
+				 //upwindTarget.BTVt /knotsToMps // knots
+				 upwindTarget.BTV // knots
 			); 
 			if (layLine.dist< 0.5){ //< 1000 metres, show metres, else Nm
 				layLineDist = Math.round(layLine.dist * nmToMetres) + " m";
@@ -761,7 +787,7 @@ function dispData(JSONcombinedData){
 			"25" : "Temp " + Number(presentPosData.wTemp), //water temp TEMP
 			"26" : "Depth(m) " + presentPosData.depthM , //depth metres DEPTH
 			"32" : "Hdg(M) " +compassDisp, //COMPASS
-			"33" : "Current: ", //section heading //CURRENTHDG
+			"33" : "Tide/set: ", //section heading //CURRENTHDG
 			/*
 			"34" : " Speed "+ currentSpeed,//CURRENTSPEED
 			"35" : " Dir " + currentAngleDegsMag, //CURRENTDIR
@@ -820,93 +846,8 @@ function dispData(JSONcombinedData){
 
 } //dispData(JSONcombinedData)
 
-function calcTargets(){ //return TWA (Rads) and BTV (m/s) for current dampedValues.TWS and STYLE
-	var target = {};
-	for (var tgtIdx = 0; tgtIdx < targetTWS.length; tgtIdx++ ){ // find the tacking speed and angle for this TWS. Assumes TWS between 0 and 35, reasonable?
-		if ( dampedValues.TWS <= targetTWS [tgtIdx]){
-			var mRange = targetTWS[tgtIdx] - targetTWS[tgtIdx -1]; // dist min to max of current wind range
-			var mScale = (dampedValues.TWS -targetTWS[tgtIdx -1])/mRange; //ratio of where current  wind speed lies in the range
-			target.TWA = Number(targetUpwindTWAs[tgtIdx -1]) + mScale * (targetUpwindTWAs[tgtIdx] -targetUpwindTWAs[tgtIdx -1]); //degrees
-			target.TWAt = target.TWA*Math.PI/180; //assume linear range	Radians		
-			target.BTV = (Number(targetUpwindSpeeds[tgtIdx -1]) + mScale * (targetUpwindSpeeds[tgtIdx] -targetUpwindSpeeds[tgtIdx -1]) ); //Knots
-			target.VMG = target.BTV*Math.cos(target.TWAt); // knots
-			//target.BTV *= styleRates[STYLE]/100; // moderate beat speed according to STYLE
-			target.BTVt = knotsToMps*target.BTV*styleRates[STYLE]/100; // m/s
-			break;} }
-	return target;
-}
-/*
- * return downwind targets for current TWS
- * used in calculating NEXT LEG apparent wind speed.
- */
-function calcDownwindTargets(){ 
-	var target = {};
-	for (var tgtIdx = 0; tgtIdx < targetTWS.length; tgtIdx++ ){ // find the tacking speed and angle for this TWS. Assumes TWS between 0 and 35, reasonable?
-		if ( dampedValues.TWS <= targetTWS [tgtIdx]){
-			var mRange = targetTWS[tgtIdx] - targetTWS[tgtIdx -1]; // dist min to max of current wind range
-			var mScale = (
-				-targetTWS[tgtIdx -1])/mRange; //ratio of where current  wind speed lies in the range
-			target.TWA = Number(targetDownwindTWAs[tgtIdx -1]) + mScale * (targetDownwindTWAs[tgtIdx] -targetDownwindTWAs[tgtIdx -1]); //degrees
-			target.TWAt = target.TWA*Math.PI/180; //assume linear range	Radians		
-			target.BTV = (Number(targetDownwindSpeeds[tgtIdx -1]) + mScale * (targetDownwindSpeeds[tgtIdx] -targetDownwindSpeeds[tgtIdx -1]) ); //Knots
-			target.BTVt = knotsToMps*target.BTV*styleRates[STYLE]/100; // m/s
-			//target.BTV *= styleRates[STYLE]/100; // moderate beat speed according to STYLE
-			target.VMG = target.BTV*Math.cos(target.TWA*Math.PI/180); // knots
-			break;} }
-	return target;
-}
 
-		
-/**
- * returns the crossover TWA (degrees)
- * where a kite performs better than a jib in the current TWS.
- * Interpolation: TWS < min, use min, TWS > max, use max
- */
-function calcJibKiteCrossoverTwa(){
-	//Pebble.showSimpleNotificationOnPebble("targetTWS.length", targetTWS.length);
-	for (var tgtIdx = 1; tgtIdx < targetTWS.length; tgtIdx++ ){ // do't interpolate 
-		if ( dampedValues.TWS <= targetTWS [tgtIdx])		
-			return targetMinTwaForKite[tgtIdx] ;
-	}			
-	return targetMinTwaForKite[tgtIdx -1] ; // over maximum listed
-}
-/*
- * calcReach TWS:kts/m/s, TWA degrees
- * returns the BTV for that TWS and TWA - weighted average point of "the square"
- * Used to plan 1. the reach leg of the start and 
- * 2. the next leg if a reach
- * Assumes that Beating TWA <TWA < Running TWA 
- */
-function calcReachBTV(TWS, TWA ){
-	//Pebble.showSimpleNotificationOnPebble("DEBUG", "In calcReachBTV");
-	TWA = Math.abs(TWA); // remove -ve TWA
-	TWA -= 180*(TWA> 180?1:0); // 0<=x<=180
-	var windAngleIdx, s, t;
-	for (var twsIdx = 1; twsIdx < targetTWS.length; twsIdx++ ){ //bounds of TWS
-		if ( TWS <= targetTWS [twsIdx]){ // this is the next higher wind speed
-			var windRange = targetTWS [twsIdx] - targetTWS [twsIdx-1]; // the scale
-			s = (TWS - targetTWS [twsIdx-1])/windRange; //
-			for (windAngleIdx = 7; windAngleIdx < polarAngles.length; windAngleIdx ++){ // start search at 2nd row of reaching polars
-				if (TWA <=polarAngles[windAngleIdx ] ) {
-					var angleRange =polarAngles[windAngleIdx] - polarAngles[windAngleIdx -1];
-					t = (TWA - polarAngles[windAngleIdx -1 ])/angleRange; //
-					break; // found next higher reaching angle
-				} //if
-			} //for
-			break; // found next higher TWS to use	
-		} //if		
-	} //for	 
-	if (windAngleIdx == polarAngles.length){ //wind angle is greater than max dowunind polar, so use max value
-		windAngleIdx --;
-	}
-	var a = Number(polars[windAngleIdx-1][twsIdx-1]); 
-	var b = Number(polars[windAngleIdx-1][twsIdx]); 
-	var c = Number(polars[windAngleIdx][twsIdx -1]); 
-	var d = Number(polars[windAngleIdx][twsIdx]); 
-	var ab = a + (b -a)*s;
-	var cd = c + (d -c)*s;
-	return ab + (cd- ab)*t;	 //knots	
-}
+
 /*
  * calcApparent (TWS: knots, mps, TWA: degrees, BTV:kts, mps
  * returns AWA:degrees, AWS: kts/mps
@@ -948,8 +889,9 @@ var courses; // the BIG clubs/series/...object
 function load_data(){
 	readCookies(); // from tactician web server (phone) with php
 	readPolars(); //this can be done before watch is ready
+ 
 	print_division();
-	get_all_courses();
+	get_selected_series();
 	
 }
 function print_division(){
@@ -983,64 +925,50 @@ function upload_division(mText){
 		}
 	);
 }
-function get_all_courses(){
-	//console.log("get_all_courses");
-	/*
-	* get the whole courses object for this club
-	*/
-	var url = WEB_HOST + "pebbleGetCourses.php?get_all_courses"; 
-	var get_all_coursesRequest = new XMLHttpRequest(); 
-	get_all_coursesRequest.open("GET", url, true);	
-	get_all_coursesRequest.send(null);
-	get_all_coursesRequest.onreadystatechange = function () {
-		  if (get_all_coursesRequest.readyState == 4 ){
-			   	if(get_all_coursesRequest.status == 200){ // or 404 not found	
-					courses = JSON.parse(get_all_coursesRequest.responseText); 
+function get_selected_series(){ //read selected series
+	var url = WEB_HOST + "pebbleGetSelectedSeries.php"; 
+	var http = new XMLHttpRequest(); 
+	http.open("GET", url, true);	
+	http.send(null);
+	http.onreadystatechange = function () {
+		  if (http.readyState == 4 ){
+			   	if(http.status == 200){ // or 404 not found	
+					var selectedSeries = JSON.parse(http.responseText); 
+					//console.log("get_selected_series\n"+ http.responseText); return;
 					testHttpFlags(3);
-					// upload_all_courses(mSeriesList,seriesIdx ); OBSOLETE with configuration settings determining club & series
  					testHttpFlags(6); //Here to manage obsolescence of upload_all_courses
-					//get_current_course();
-					//Pebble.showSimpleNotificationOnPebble("get_all_coursesRequest: ",get_all_coursesRequest.responseText);
 					testHttpFlags(4);testHttpFlags(7); //obsolete  get_current_course
-					//populateDivsFromSeries(); //populate div/course list
-					setTimeout(function(){populateDivsFromSeries();},1000); //work-around for occasional latency issue
+					setTimeout(function(){populateDivsFromSeries(selectedSeries);},1000); //work-around for occasional latency issue
 				}
 				else
 					Pebble.showSimpleNotificationOnPebble("HTTP Fail(3)", "Check that your web server is running");
 		 	}
-		};
+		};	
 }
-
 
 /* extract the division/courses for the current series
 from the courses object  
 */
-function populateDivsFromSeries() { //modelled on getSeriesFromSelect
-	
-	var thisSeriesObj = courses.clubs[settings.clubIdx].series[settings.seriesIdx].courses; //
+function populateDivsFromSeries(selectedSeries) { //modelled on getSeriesFromSelect
+	LOCAL_MAG_VAR = selectedSeries.clubMagVar;
 	var courseDivsList = "";
 	var courseDivCount = 0;
-	for (var courseIdx in thisSeriesObj){
-		var thisCourse = thisSeriesObj[courseIdx];
-		//for (var divisionIdx in thisCourse.divisions){
-			courseDivCount ++;
-			//var selectedDivision = thisCourse.divisions[settings.divIdx];
-			//courseDivsList += thisCourse.number+" "+ selectedDivision.name + " "+ thisCourse.wind +"|"+
-			courseDivsList += thisCourse.number +" "+ thisCourse.wind +"|"+
-				//courseIdx +"|"+ settings.divIdx +":";  // | delimited within : delimited		
-				courseIdx+":";  // | delimited within : delimited		
-		//}
+	for (var courseIdx in selectedSeries.courses){
+		var thisCourse = selectedSeries.courses[courseIdx];
+		courseDivCount ++;
+		courseDivsList += thisCourse.number +" "+ thisCourse.wind +"|"+
+		courseIdx+":";  // | delimited within : delimited		
 	}
 	uploadDivs(courseDivCount,courseDivsList );
 }
 function uploadDivs(courseDivCount,courseDivsList ){
-	// Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
+	//Pebble.showSimpleNotificationOnPebble("courseDivCount",courseDivCount); 
 	Pebble.sendAppMessage({ 
 		"42": courseDivCount, //	COURSEDIVSCOUNT, // 42 number of course divisions in this series
 		"43": courseDivsList ,// COURSEDIVS, //43 the | and : separated list of divs
 		 }, function(e) { //Success callback
 				 testHttpFlags(8);
-				  //Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
+				 // Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
   						},
 			function(e) { //Fail callback
 				//console.log('sendAppMessage courseDivCount:'+courseDivCount + " courseDivsList: "+ courseDivsList);
@@ -1070,54 +998,44 @@ function  readCookies(){ //cookies established in Pebble Configuration/Settings
 /*
 flags for loading data from Logger via HTTP
 */
+/*
+flags for loading data from Logger via HTTP
+httpFlags incremented by 2^(flag-1): e.g. 1->2^0=1, 2->2^1=2; 5-> 2^4 = 16 9->2^8=256
+*/
 function testHttpFlags(flag){
 	var mask=Math.pow(2,(flag-1));
 	httpFlags = httpFlags | mask;
 	if (httpFlags==511){
 		httpFlags=0; //ready for the configuration
-		var settingsText  = "Club: ";
 		if (settings.clubIdx === undefined)
 			settings.clubIdx=0;
-		settingsText +=  courses.clubs[settings.clubIdx].name;			
-		settingsText  += "\nSeries: ";
+
 		if (settings.seriesIdx === undefined)
 			settings.seriesIdx = 0;
-		settingsText +=  courses.clubs[settings.clubIdx]
-				.series[settings.seriesIdx].name;			
-		settingsText  += "\nDivision: ";
 		if (settings.divIdx === undefined)
 			settings.divIdx = 0;
-		if (settings.divIdx !== 0)
-			settingsText += courses.clubs[settings.clubIdx]
-				.series[settings.seriesIdx]
-				.courses[0]  //assume all courses in the series have the same divisions, so 
-				.divisions[settings.divIdx].name;		
 		
-		LOCAL_MAG_VAR = Number(courses.clubs[settings.clubIdx].magVar);settingsText += "\nLOCAL_MAG_VAR: "+LOCAL_MAG_VAR;
+		//LOCAL_MAG_VAR = 2.5; //Number(courses.clubs[settings.clubIdx].magVar);
 		if (settings.yachtLength === undefined)
 			settings.yachtLength = 12;
-		YACHT_LENGTH  = settings.yachtLength; settingsText += "\nYACHT_LENGTH: "+YACHT_LENGTH;
+		YACHT_LENGTH  = settings.yachtLength; 
 		if (settings.gpsBehindBow === undefined)
 			settings.gpsBehindBow = 8;
-		GPS_BEHIND_BOW= settings.gpsBehindBow; settingsText += "\nGPS_BEHIND_BOW: "+GPS_BEHIND_BOW;
+		GPS_BEHIND_BOW= settings.gpsBehindBow; 
 		if (settings.perfStyle === undefined)
 			settings.perfStyle = 2;
-		STYLE = settings.perfStyle;settingsText += "\nSTYLE: "+STYLE;
-		//console.log(settingsText);
-		//Pebble.showSimpleNotificationOnPebble("Data loaded:",settingsText); 
+		STYLE = settings.perfStyle;
 		flagDataLoaded();
 
 	}
-	//console.log('testHttpFlag: '  + flag + ":" +httpFlags);
-	//else 
+		//else 
+		//console.log('testHttpFlag: '  + flag + ":" +httpFlags);
 		//Pebble.showSimpleNotificationOnPebble("Server progress:","Flag: "+flag + "flags: "+httpFlags); 
 }
 function flagDataLoaded( ){
-	// Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
 	Pebble.sendAppMessage({ 
 		"44": "0", //	COURSEDIVSCOUNT, // 42 number of course divisions in this series
 		 }, function(e) { //Success callback
-				 //testHttpFlags(8);
 			 		commsTimer(); //start the timer once all the data is loaded
 				  //Pebble.showSimpleNotificationOnPebble("courseDivsList",courseDivsList); 
   						},
@@ -1128,4 +1046,112 @@ function flagDataLoaded( ){
 				}
 	);	
 }	
+function polarClass(polarArray){ //passed racing(targets) or starting polars array
+	this.targetTWS = [];
+	this.polarAngles=[];
+	this.polars=[];
+	for (var colIdx=1; colIdx < polarArray[0].length; colIdx ++ ) // top row from second column has TWS
+		this.targetTWS[colIdx -1] = polarArray[0][colIdx];
+	for (var rowIdx=1; rowIdx <polarArray.length; rowIdx ++ ) // left hand column has polar angles
+		this.polarAngles[rowIdx -1] = polarArray[rowIdx][0];
+	for ( rowIdx = 1; rowIdx < polarArray.length; rowIdx++){ // set up central polars array
+		this.polars[rowIdx-1] = [];
+		for ( colIdx = 1; colIdx < polarArray[0].length; colIdx++)
+			this.polars[rowIdx -1][colIdx-1] = polarArray[rowIdx][colIdx];
+	}
+	this.upwindTWAs = this.polars[0];
+	this.upwindSpeeds = this.polars[1];
+	this.downwindTWAs = this.polars[2];
+	this.downwindSpeeds = this.polars[3];
+	this.minTwaForKite = this.polars[4];
+	
+	this.calcTargets= function(TWS){ //return TWA (Rads) and BTV (m/s) for current dampedValues.TWS and STYLE
+		var target = {};
+		for (var tgtIdx = 1; tgtIdx < this.targetTWS.length; tgtIdx++ ){ // find the tacking speed and angle for this TWS. Assumes TWS between 0 and 35, reasonable?
+			if ( dampedValues.TWS <= this.targetTWS [tgtIdx]){
+				var mRange = this.targetTWS[tgtIdx] - this.targetTWS[tgtIdx -1]; // dist min to max of current wind range
+				var mScale = (TWS -this.targetTWS[tgtIdx -1])/mRange; //ratio of where current  wind speed lies in the range
+				target.TWA = Number(this.upwindTWAs[tgtIdx -1]) + mScale * (this.upwindTWAs[tgtIdx] -this.upwindTWAs[tgtIdx -1]); //degrees
+				target.TWAt = target.TWA*Math.PI/180; //assume linear range	Radians		
+				target.BTV = (Number(this.upwindSpeeds[tgtIdx -1]) + mScale * (this.upwindSpeeds[tgtIdx] -this.upwindSpeeds[tgtIdx -1]) ); //Knots
+				target.VMG = target.BTV*Math.cos(target.TWAt); // knots
+			//target.BTV *= styleRates[STYLE]/100; // moderate beat speed according to STYLE
+				//target.BTVt = knotsToMps*target.BTV*styleRates[STYLE]/100; // m/s
+				target.BTVt = knotsToMps*target.BTV; // m/s
+				break;} }
+			return target;
+	};
+	/*
+ * return downwind targets for current TWS
+ * used in calculating NEXT LEG apparent wind speed.
+ */
+	this.calcDownwindTargets= function(TWS){ 
+		var target = {};
+		for (var tgtIdx = 1; tgtIdx < this.targetTWS.length; tgtIdx++ ){ // find the tacking speed and angle for this TWS. Assumes TWS between 0 and 35, reasonable?
+			if ( TWS <= this.targetTWS [tgtIdx]){
+				var mRange = this.targetTWS[tgtIdx] - this.targetTWS[tgtIdx -1]; // dist min to max of current wind range
+				var mScale = (
+					-this.targetTWS[tgtIdx -1])/mRange; //ratio of where current  wind speed lies in the range
+				target.TWA = Number(this.downwindTWAs[tgtIdx -1]) + mScale * (this.downwindTWAs[tgtIdx] -this.downwindTWAs[tgtIdx -1]); //degrees
+				target.TWAt = target.TWA*Math.PI/180; //assume linear range	Radians		
+				target.BTV = (Number(this.downwindSpeeds[tgtIdx -1]) + mScale * (this.downwindSpeeds[tgtIdx] -this.downwindSpeeds[tgtIdx -1]) ); //Knots
+				//target.BTVt = knotsToMps*target.BTV*styleRates[STYLE]/100; // m/s
+				target.BTVt = knotsToMps*target.BTV; // m/s
+				target.VMG = target.BTV*Math.cos(target.TWA*Math.PI/180); // knots
+				break;} }
+		return target;
+	};
+	/**
+ * returns the crossover TWA (degrees)
+ * where a kite performs better than a jib in the current TWS.
+ * Interpolation: TWS < min, use min, TWS > max, use max
+ */
+	this.calcJibKiteCrossoverTwa = function(TWS){
+		//Pebble.showSimpleNotificationOnPebble("targetTWS.length", targetTWS.length);
+		for (var tgtIdx = 1; tgtIdx < this.targetTWS.length; tgtIdx++ ){ // do't interpolate 
+			if ( TWS <= this.targetTWS [tgtIdx])		
+				return this.minTwaForKite[tgtIdx] ;
+		}			
+		return this.minTwaForKite[tgtIdx -1] ; // over maximum listed
+	};
+	/*
+ * calcReach TWS:kts/m/s, TWA degrees
+ * returns the BTV for that TWS and TWA - weighted average point of "the square"
+ * Used to plan 1. the reach leg of the start and 
+ * 2. the next leg if a reach
+ * Assumes that Beating TWA <TWA < Running TWA 
+ */
+	this.calcReachBTV= function(TWS, TWA ){
+		//Pebble.showSimpleNotificationOnPebble("DEBUG", "In calcReachBTV");
+		TWA = Math.abs(TWA); // remove -ve TWA
+		TWA -= 180*(TWA> 180?1:0); // 0<=x<=180
+		var windAngleIdx, s, t;
+		for (var twsIdx = 1; twsIdx < this.targetTWS.length; twsIdx++ ){ //bounds of TWS
+			if ( TWS <= this.targetTWS [twsIdx]){ // this is the next higher wind speed
+				var windRange = this.targetTWS [twsIdx] - this.targetTWS [twsIdx-1]; // the scale
+				s = (TWS - this.targetTWS [twsIdx-1])/windRange; //
+				for (windAngleIdx = 7; windAngleIdx < this.polarAngles.length; windAngleIdx ++){ // start search at 2nd row of reaching polars
+					if (TWA <=this.polarAngles[windAngleIdx ] ) {
+						var angleRange =this.polarAngles[windAngleIdx] - this.polarAngles[windAngleIdx -1];
+						t = (TWA - this.polarAngles[windAngleIdx -1 ])/angleRange; //
+						break; // found next higher reaching angle
+					} //if
+				} //for
+				break; // found next higher TWS to use	
+			} //if		
+		} //for	 
+		if (windAngleIdx == this.polarAngles.length){ //wind angle is greater than max dowunind polar, so use max value
+			windAngleIdx --;
+		}
+		var a = Number(this.polars[windAngleIdx-1][twsIdx-1]); 
+		var b = Number(this.polars[windAngleIdx-1][twsIdx]); 
+		var c = Number(this.polars[windAngleIdx][twsIdx -1]); 
+		var d = Number(this.polars[windAngleIdx][twsIdx]); 
+		var ab = a + (b -a)*s;
+		var cd = c + (d -c)*s;
+		return ab + (cd- ab)*t;	 //knots	
+	};
+	
+}
+	
 

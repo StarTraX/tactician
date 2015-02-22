@@ -61,10 +61,8 @@ static void window_load(Window *m_window) {
 	}
 
 
-
-
   	menu_sections[0] = (SimpleMenuSection){
-	  	.title = "Nav Divs Menu",
+	  	.title = "Courses Menu",
     	.num_items = num_a_items,
     	.items = menu_items,
 	};

@@ -56,7 +56,7 @@ static void nav_menu_window_load(Window *mWindow) {
 
   // Bind the menu items to the corresponding menu sections
   menu_sections[0] = (SimpleMenuSection){
-	  .title = "Navigation Menu",
+	  .title = "Course Tracking Menu",
     .num_items = 4,
     .items = nav_menu_items,
   };

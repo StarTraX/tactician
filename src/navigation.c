@@ -26,7 +26,7 @@ void set_nav_text_layer( int dispIdx ){
 static void window_load(Window *window) {
 	rowIndex=0;
 	rowSpace = 32;
-	text_layer_set_text(page_heading, "--NAV-SPEED&HDG--");
+	text_layer_set_text(page_heading, "-- SPEED & HDG --");
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(page_heading));
 					
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height

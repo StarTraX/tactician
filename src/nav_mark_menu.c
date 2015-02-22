@@ -6,13 +6,13 @@ static int num_a_items =0;
 static Window *window;
 static	SimpleMenuSection menu_sections[1];
 static SimpleMenuLayer *menu_layer;
-static SimpleMenuItem menu_items[3];
+static SimpleMenuItem menu_items[2];
 void back_to_main_menu(){
 	window_stack_pop(true); //this window
 	window_stack_pop(true); // prev window (next-mark or next-leg)
 	window_stack_pop(true); // navigation menu	
 }
-void manual_start(){
+void manual_start(){ 
  	send_to_phone( TupletInteger(102, 0)); // 0: manual start
 	back_to_main_menu();
 }
@@ -29,10 +29,10 @@ void next_mark(){
 static void menu_select_callback(int index, void *ctx) {	
 	if(index==0)
 		prev_mark();		
+	//if(index==1)
+	//	manual_start();
 	if(index==1)
-		manual_start();
-	if(index==2)
-		next_mark(); //speed & heading
+		next_mark();
 }
 
 static void window_load(Window *window) {
@@ -45,32 +45,27 @@ static void window_load(Window *window) {
     .callback = menu_select_callback,
   };
   // The menu items appear in the order saved in the menu items array
+	/*
   menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Manual Start",
 	.subtitle = "Start navigating.",
      .callback = menu_select_callback,
   };
+  */
   menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Fwd one mark ",
     .subtitle = "Move forward one mark",
     .callback = menu_select_callback,
   };
- 
-  // Bind the menu items to the corresponding menu sections
   menu_sections[0] = (SimpleMenuSection){
-	  .title = "Nav mark menu",
-    .num_items = 3,
+	.title = "Mark menu",
+    .num_items = 2,
     .items = menu_items,
   };
    Layer *window_layer = window_get_root_layer(window);
-  GRect bounds = layer_get_frame(window_layer);
-
-  // Initialize the simple menu layer
-  
+  GRect bounds = layer_get_frame(window_layer);  
 	menu_layer = simple_menu_layer_create(bounds, window, menu_sections, 1, NULL);
-
-  // Add it to the window for display
-  layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
+   layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
 }
 void window_appear(){
 

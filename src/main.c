@@ -7,6 +7,6 @@
 int main(void) {
 	//atest();
 	dashboard_init();
-	show_splash();
+	show_splash(false);
   app_event_loop();
 }

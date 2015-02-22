@@ -58,7 +58,7 @@ enum  { //incoming message  keys
 	SOLUTIONSTATUS, //52 description
 	SOLUTIONTIME, //53 SOLUTIONTIME time to line  or time to tack
 	SOLUTIONPOS, //54 "Line dist: " +lineDist
-
+	ALERTTIMER, //55 no message received since...
 	numberOfDisplays, //count of the number of displays	
 };
 char * courseName, * seriesName;
@@ -78,3 +78,4 @@ int rowSpace;
 int seriesCount; //count of number of series in Club
 int courseDivsCount ; //count of course divs in this series
 void send_to_phone();
+time_t msgReceivedTimestamp;

@@ -3,12 +3,13 @@
 #include <performance.h>
 #include <navigation_menu.h>
 #include <start_menu.h>
+# include <aSplash.h>
 
 
 #define NUM_MENU_SECTIONS 1
 #define NUM_FIRST_MENU_ITEMS 3
 
-static Window *main_menu_window;
+static Window *window;
 
 static SimpleMenuLayer *simple_menu_layer;
 
@@ -29,14 +30,16 @@ static void menu_select_callback(int index, void *ctx) {
 	if(index==2){
 		show_nav_menu();
 	}
-  // Mark the layer to be updated
-  //layer_mark_dirty(simple_menu_layer_get_layer(simple_menu_layer));
 }
-
-static void main_menu_window_load(Window *main_menu_window) {
+void close_main_window(ClickRecognizerRef recognizer, void *context){
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Back Button"); //force a long click to close this window
+}
+static void config_provider(){
+		window_single_click_subscribe(BUTTON_ID_BACK, close_main_window);
+}
+static void window_load(Window *window) {
+	window_set_click_config_provider(window, config_provider);
   int num_a_items = 0;
-
-  // The menu items appear in the order saved in the menu items array
    first_menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Starting",
     .subtitle = "Start Line, Timer, Plan",
@@ -49,7 +52,7 @@ static void main_menu_window_load(Window *main_menu_window) {
     .callback = menu_select_callback,
   };
   first_menu_items[num_a_items++] = (SimpleMenuItem){
-    .title = "Navigation",
+    .title = "Course Tracking",
     .subtitle = "Course, marks, position",
     .callback = menu_select_callback,
   };
@@ -60,40 +63,33 @@ static void main_menu_window_load(Window *main_menu_window) {
     .items = first_menu_items,
   };
  
-
-  // Now we prepare to initialize the simple menu layer
-  // We need the bounds to specify the simple menu layer's viewport size
-  // In this case, it'll be the same as the window's
-  Layer *window_layer = window_get_root_layer(main_menu_window);
-  GRect bounds = layer_get_frame(window_layer);
-
-  // Initialize the simple menu layer
-  simple_menu_layer = simple_menu_layer_create(bounds, main_menu_window, menu_sections, NUM_MENU_SECTIONS, NULL);
-
-  // Add it to the window for display
-  layer_add_child(window_layer, simple_menu_layer_get_layer(simple_menu_layer));
+  GRect bounds = layer_get_frame( window_get_root_layer(window));
+ simple_menu_layer = simple_menu_layer_create(bounds, window, menu_sections, NUM_MENU_SECTIONS, NULL);
+  layer_add_child(window_get_root_layer(window), simple_menu_layer_get_layer(simple_menu_layer));
 }
 
 
-void main_menu_window_unload(Window *main_menu_window) {// Deinitialize resources on window unload that were initialized on window load
-  simple_menu_layer_destroy(simple_menu_layer);
+static void window_unload(Window *window) {// Deinitialize resources on window unload that were initialized on window load
+	simple_menu_layer_destroy(simple_menu_layer);
+	window_destroy(window);
+	//show_splash(true); //too hard to avoid the double free crash on second exit!
 }
 
 char  Msg[100];
-void handle_main_menu_appear(){
+static void window_appear(){
 	snprintf(Msg, 100,  "Heap free: %d ", heap_bytes_free());
  	APP_LOG(APP_LOG_LEVEL_INFO, Msg);
 }
 
  void show_main_menu(){
-  main_menu_window = window_create();
+  window = window_create();
 
   // Setup the window handlers
-  window_set_window_handlers(main_menu_window, (WindowHandlers) {
-    .load = main_menu_window_load,
-    .unload = main_menu_window_unload,
-	.appear = handle_main_menu_appear,
+  window_set_window_handlers(window, (WindowHandlers) {
+    .load = window_load,
+    .unload = window_unload,
+	.appear = window_appear,
   });
-		 window_stack_push(main_menu_window, true /* Animated */);
+		 window_stack_push(window, true /* Animated */);
 }
 

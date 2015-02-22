@@ -43,7 +43,7 @@ static void window_load(Window * window)  {
 	rowIndex=0;
 	rowSpace = 32;
 
-	text_layer_set_text(page_heading, "--NAV NEXT LEG--");
+	text_layer_set_text(page_heading, "--- NEXT LEG  ---");
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(page_heading));
 					
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
