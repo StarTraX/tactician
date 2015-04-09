@@ -2,13 +2,17 @@
 #include "nav_current_course.h"
 #include "dashboard.h"
 #include "nav_course_div_menu.h"
-
 static Window *s_window;
 	TextLayer * text_layer;
 	ScrollLayer *scroll_layer;
 
 void current_course_config_provider() {
-   window_single_click_subscribe(BUTTON_ID_SELECT, show_nav_divs_menu);
+	static char msg[125] ;
+	//snprintf(msg, 125, "ROLE received: %s, Admin user: %s", role, adminRole);
+	snprintf(msg, 125, "ROLE received: %d", intRole);
+	APP_LOG(APP_LOG_LEVEL_INFO,msg);
+	if (intRole==0)
+	   window_single_click_subscribe(BUTTON_ID_SELECT, show_nav_divs_menu);
 }
 static void initialise_nav_course_ui(void) {
   	s_window = window_create();	rowIndex=0;

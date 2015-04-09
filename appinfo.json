@@ -9,22 +9,23 @@
     "resources": {
         "media": [
             {
+                "file": "images/appImagenew.png",
+                "name": "APP_IMAGE",
+                "type": "png"
+            },
+            {
                 "file": "images/menuImage.png",
                 "menuIcon": true,
                 "name": "MENU_IMAGE",
                 "type": "png"
-            },
-            {
-                "file": "images/appImagenew.png",
-                "name": "APP_IMAGE",
-                "type": "png"
             }
         ]
     },
+    "sdkVersion": "2",
     "shortName": "Tactician",
     "uuid": "0ec62310-32fe-4430-9b2b-555e72c3179d",
     "versionCode": 1,
-    "versionLabel": "1.0",
+    "versionLabel": "2.0",
     "watchapp": {
         "watchface": false
     }

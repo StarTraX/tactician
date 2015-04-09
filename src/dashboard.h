@@ -59,11 +59,13 @@ enum  { //incoming message  keys
 	SOLUTIONTIME, //53 SOLUTIONTIME time to line  or time to tack
 	SOLUTIONPOS, //54 "Line dist: " +lineDist
 	ALERTTIMER, //55 no message received since...
+	ROLE, //56 user's role: "admin" or "crew"
 	numberOfDisplays, //count of the number of displays	
 };
 char * courseName, * seriesName;
+int intRole;  // 0: admin, not 0: crew
 char * wptName, * nextLegName;
-
+char * adminRole; // = "admin";
 TextLayer * displayFields[numberOfDisplays];
 //TextLayer ** displayFields;
 //char ** mAns;

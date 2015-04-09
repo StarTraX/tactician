@@ -6,7 +6,7 @@ static int num_a_items =0;
 static Window *window;
 static	SimpleMenuSection menu_sections[1];
 static SimpleMenuLayer *menu_layer;
-static SimpleMenuItem menu_items[2];
+static SimpleMenuItem menu_items[3];
 void back_to_main_menu(){
 	window_stack_pop(true); //this window
 	window_stack_pop(true); // prev window (next-mark or next-leg)
@@ -29,9 +29,9 @@ void next_mark(){
 static void menu_select_callback(int index, void *ctx) {	
 	if(index==0)
 		prev_mark();		
-	//if(index==1)
-	//	manual_start();
 	if(index==1)
+		manual_start();
+	if(index==2)
 		next_mark();
 }
 
@@ -45,13 +45,13 @@ static void window_load(Window *window) {
     .callback = menu_select_callback,
   };
   // The menu items appear in the order saved in the menu items array
-	/*
+
   menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Manual Start",
 	.subtitle = "Start navigating.",
      .callback = menu_select_callback,
   };
-  */
+
   menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Fwd one mark ",
     .subtitle = "Move forward one mark",
@@ -59,7 +59,7 @@ static void window_load(Window *window) {
   };
   menu_sections[0] = (SimpleMenuSection){
 	.title = "Mark menu",
-    .num_items = 2,
+    .num_items = num_a_items,
     .items = menu_items,
   };
    Layer *window_layer = window_get_root_layer(window);

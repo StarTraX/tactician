@@ -39,17 +39,18 @@ static void window_load(Window *window) {
     .subtitle = "Time & Distance",
     .callback = menu_select_callback,
   }; 
-	menu_items[num_a_items++] = (SimpleMenuItem){
-      .title = "  PING ",
-	 .subtitle = "Ping the line ends",
-    .callback = menu_select_callback,
-  };
- menu_items[num_a_items++] = (SimpleMenuItem){
-    .title = "  TIMER ",
-    .subtitle = "Start the countdow.",
-    .callback = menu_select_callback,
-  };
-
+	if (intRole==0){ //only available for admin user
+		menu_items[num_a_items++] = (SimpleMenuItem){
+		  .title = "  PING ",
+		 .subtitle = "Ping the line ends",
+		.callback = menu_select_callback,
+	  };
+	 menu_items[num_a_items++] = (SimpleMenuItem){
+		.title = "  TIMER ",
+		.subtitle = "Start the countdow.",
+		.callback = menu_select_callback,
+	  };
+	}
  
   // Bind the menu items to the corresponding menu sections
   menu_sections[0] = (SimpleMenuSection){
@@ -58,14 +59,9 @@ static void window_load(Window *window) {
     .items = menu_items,
   };
    Layer *window_layer = window_get_root_layer(window);
-  GRect bounds = layer_get_frame(window_layer);
-
-  // Initialize the simple menu layer
-  
+  GRect bounds = layer_get_frame(window_layer); 
 	menu_layer = simple_menu_layer_create(bounds, window, menu_sections, 1, NULL);
-
-  // Add it to the window for display
-  layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
+   layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
 }
 static void window_appear(){
 	//send_to_phone(TupletCString(100, "start_menu"));

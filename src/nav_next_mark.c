@@ -35,9 +35,9 @@ static void scroll_down(){
 }
 static void config_provider() {
   // window_single_click_subscribe(BUTTON_ID_SELECT, show_nav_divs_menu);
-	window_single_click_subscribe(BUTTON_ID_SELECT, show_nav_mark_menu);
-	//window_single_click_subscribe(BUTTON_ID_UP, scroll_up);
-	//window_single_click_subscribe(BUTTON_ID_DOWN, scroll_down);
+	if (intRole==0)
+		window_single_click_subscribe(BUTTON_ID_SELECT, show_nav_mark_menu);
+
 }
 char Msg[60];
 static void add_text_layer( int dispIdx ){

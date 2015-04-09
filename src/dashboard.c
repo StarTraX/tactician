@@ -16,7 +16,7 @@ char Msg[100];
 Tuple *dataReceived;
 int mcount=0;
 long msgReceivedTimestamp =2000000000; 
-
+int intRole; // 0: admin, 1: crew
 //static int dispCounter=0;
 static bool isEB = false;
  static void in_received_handler(DictionaryIterator *iter, void *context) {
@@ -72,7 +72,12 @@ static bool isEB = false;
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	
 				 }
 			 	break;
-			 
+			 case ROLE: // user's role: "admin" "crew" controls access to input functions
+			 	intRole = strcmp(dataReceived->value->cstring, adminRole);
+				static char msg[125] ;
+				//snprintf(msg, 125, "ROLE received:%s, intRole %d", dataReceived->value->cstring, intRole);
+				//APP_LOG(APP_LOG_LEVEL_INFO,msg);
+				 break;
 			 default : //where most of the work is done: receives all the data from the phone-processed sensor data from the GPS and boat
 			 	if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	
@@ -136,26 +141,20 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
 }
 static void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
 	int elapsedTime = time(NULL) - msgReceivedTimestamp;
-	//char msgBuff[50];
-	char msg[20] = "Time since: "	;
-	char  buff[5];
+	static char msg[125] ;
 	if(elapsedTime >= WARNING_TIME){
-		APP_LOG(APP_LOG_LEVEL_DEBUG,"elapsedTime >= WARNING_TIME");
-		snprintf(buff, 5, "%d", elapsedTime); //format the elapsed time
-		if (window_stack_contains_window(alertWindow)){	 //check if the window hosting the text has been created	
-			APP_LOG(APP_LOG_LEVEL_DEBUG,"(window_stack_contains_window(alertWindow)");
-			 strcat(msg, buff);
+		snprintf(msg, 125, "No new data received for %d secs. Check your phone.", elapsedTime);
+
+		if (alertWindowIsDisplayed){	 //check if the window hosting the text has been created	
 			text_layer_set_text(displayFields[ALERTTIMER], msg );	
 		}
 		else{
-			APP_LOG(APP_LOG_LEVEL_DEBUG,"(ELSE (NOT)window_stack_contains_window(alertWindow)");
+			//APP_LOG(APP_LOG_LEVEL_DEBUG,"calling show_alert()");
 			show_alert();
 		}
 	}
 	else{
-		APP_LOG(APP_LOG_LEVEL_DEBUG,"ELSE (NOT) elapsedTime >= WARNING_TIME");
-		if (window_stack_contains_window(alertWindow)){	
-			APP_LOG(APP_LOG_LEVEL_DEBUG,"(window_stack_contains_window(alertWindow)");
+		if (alertWindowIsDisplayed){			
 			window_stack_remove(alertWindow, true);	
 		}
 	}

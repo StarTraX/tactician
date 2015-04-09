@@ -13,7 +13,7 @@ SimpleMenuLayer *nav_menu_layer;
 SimpleMenuItem nav_menu_items[4];
 static void nav_menu_select_callback(int index, void *ctx) {	
 	if(index==0){
-		APP_LOG(APP_LOG_LEVEL_INFO, "Next Mark");
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Next Mark");
 		show_nav_next_mark();		
 	}
 	if(index==1)
