@@ -51,7 +51,7 @@ static void window_appear(){
 void show_start_line(void) {
   //initialise_nav_next_mark_ui();
 	 s_window = window_create();
-  	window_set_fullscreen(s_window, true);	
+  	//window_set_fullscreen(s_window, true);	
 
   window_set_window_handlers(s_window, (WindowHandlers) {
 	  .load = window_load,

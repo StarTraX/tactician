@@ -7,8 +7,9 @@
 
 int main(void) {
 	adminRole = "admin";
-	 APP_LOG(APP_LOG_LEVEL_INFO, "StarTraX Tactician version %d.%d", __pbl_app_info.process_version.major, __pbl_app_info.process_version.minor );
+	APP_LOG(APP_LOG_LEVEL_INFO, "StarTraX Tactician version %d.%d", __pbl_app_info.process_version.major, __pbl_app_info.process_version.minor );
 	dashboard_init();
 	show_splash(false);
-  app_event_loop();
+  	app_event_loop();
+	APP_LOG(APP_LOG_LEVEL_DEBUG,"main end");
 }

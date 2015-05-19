@@ -30,7 +30,7 @@ void show_alert(void) {
 	vibes_long_pulse();
 	alertWindow = window_create();
 
-  	window_set_fullscreen(alertWindow, true);	
+  	//window_set_fullscreen(alertWindow, true);	
   	window_set_window_handlers(alertWindow, (WindowHandlers) {
 		.load = window_load, 
     	.unload = window_unload,

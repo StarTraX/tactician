@@ -96,7 +96,7 @@ static void handle_nav_window_unload(Window* window) {
 void show_nav_next_mark(void) {
 
 	 s_window = window_create();
-  	window_set_fullscreen(s_window, true);	
+  //	window_set_fullscreen(s_window, true);	
 
   window_set_window_handlers(s_window, (WindowHandlers) {
 	  .load = window_load,

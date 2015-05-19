@@ -17,7 +17,7 @@ void current_course_config_provider() {
 static void initialise_nav_course_ui(void) {
   	s_window = window_create();	rowIndex=0;
 	rowSpace = 32;
- 	window_set_fullscreen(s_window, true);	
+ 	//window_set_fullscreen(s_window, true);	
 	text_layer_set_text(page_heading, "--- COURSE  ---");
 	layer_add_child(window_get_root_layer(s_window), text_layer_get_layer(page_heading));
 	GRect bounds = GRect(0,24,144, 168); //full height // y was row_space

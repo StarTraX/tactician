@@ -85,7 +85,7 @@ static void window_appear(){
 
 void show_nav_next_leg(void) {
 	 window = window_create();
-  	window_set_fullscreen(window, true);	
+  	//window_set_fullscreen(window, true);	
 
   window_set_window_handlers(window, (WindowHandlers) {
 	  .load = window_load, 

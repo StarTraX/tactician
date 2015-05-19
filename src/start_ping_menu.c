@@ -57,7 +57,7 @@ static void window_unload(Window *window) {// Deinitialize resources on window u
 
  void show_start_ping_menu(){
    	window = window_create();
-	window_set_fullscreen(window, true);
+	//window_set_fullscreen(window, true);
   	window_set_window_handlers(window, (WindowHandlers) {
     	.load = window_load,
     	.unload = window_unload,

@@ -19,7 +19,45 @@ long msgReceivedTimestamp =2000000000;
 int intRole; // 0: admin, 1: crew
 //static int dispCounter=0;
 static bool isEB = false;
- static void in_received_handler(DictionaryIterator *iter, void *context) {
+/* ------------ DECLARATIONS: ------*/
+static void checkMsgTime(struct tm *tick_time, TimeUnits units_changed);
+static void in_received_handler(DictionaryIterator *iter, void *context);
+void in_dropped_handler(AppMessageResult reason, void *context);
+char *translate_error(AppMessageResult result); 
+static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context);
+static void outbox_sent_callback(DictionaryIterator *iterator, void *context);
+
+void send_to_phone(Tuplet tuple) { 
+	DictionaryIterator * iter;	
+	app_message_outbox_begin(&iter);
+  	dict_write_tuplet(iter, &tuple);
+  	dict_write_end(iter);
+	app_message_outbox_send();
+	//int reason = app_message_outbox_send();
+	//snprintf(buff, 100, "send_to_phone %s", translate_error(reason));	
+	//APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
+}
+
+ void dashboard_init(){
+	//APP_MSGS = malloc(sizeof(struct APP_MSG )*512); // store msgs and frq
+	displayFont1 = fonts_get_system_font(FONT_KEY_GOTHIC_28);	
+	dispHdgFont1 = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);	
+	page_heading  = text_layer_create(GRect(0, 0, 144, 26)); 
+	text_layer_set_font( page_heading, dispHdgFont1);
+	text_layer_set_text_alignment(page_heading,GTextAlignmentCenter);
+	splashScreenMessage = "  Loading..."; //initial splash screen notice. to "Bye" message above 
+	refreshingMsg = "Refreshing...";
+	app_message_register_inbox_received(in_received_handler);
+	app_message_register_inbox_dropped(in_dropped_handler);
+	app_message_register_outbox_failed(outbox_failed_callback);
+	app_message_register_outbox_sent(outbox_sent_callback);
+	const uint32_t inbound_size = app_message_inbox_size_maximum();
+	//const uint32_t outbound_size = app_message_outbox_size_maximum();
+	const uint32_t outbound_size =30;
+   	app_message_open(inbound_size, outbound_size);
+    tick_timer_service_subscribe(SECOND_UNIT, checkMsgTime);	 
+}
+static void in_received_handler(DictionaryIterator *iter, void *context) {
 	 //if ( heap_bytes_free()<300){
 	 	//snprintf(Msg,60, "Free heap :  %d ",heap_bytes_free());
 		//APP_LOG(APP_LOG_LEVEL_DEBUG,Msg);
@@ -27,8 +65,7 @@ static bool isEB = false;
 	msgReceivedTimestamp = time(NULL);
 	 dataReceived =dict_read_first(iter);
 	 while (dataReceived != NULL){
-		 // refresh the time last received
-		 
+		 // refresh the time last received		 
 		 switch( dataReceived->key ) {
 			 case COURSE:
 			 	currentCourseText = malloc(sizeof(char)*strlen(dataReceived->value->cstring)); //for current course display
@@ -56,7 +93,8 @@ static bool isEB = false;
 			 	break;
 			 case FLAGDATALOADED: //special case when data is loaded		 	
 			 	splashScreenMessage = "   'bye, thanks.";
-			 	window_stack_pop(true); //close the splash window
+			 	APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
+			 	//window_stack_pop(true); //close the splash window
 			 	show_main_menu();
 			 	//APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
 			 	break;
@@ -74,7 +112,7 @@ static bool isEB = false;
 			 	break;
 			 case ROLE: // user's role: "admin" "crew" controls access to input functions
 			 	intRole = strcmp(dataReceived->value->cstring, adminRole);
-				static char msg[125] ;
+				//static char msg[125] ;
 				//snprintf(msg, 125, "ROLE received:%s, intRole %d", dataReceived->value->cstring, intRole);
 				//APP_LOG(APP_LOG_LEVEL_INFO,msg);
 				 break;
@@ -90,7 +128,24 @@ static bool isEB = false;
 	 free(dataReceived);
 	// free(currentCourseText);
 }
+void in_dropped_handler(AppMessageResult reason, void *context) {	
+	char  buff[100];
+	 snprintf(buff, 100, "in_dropped_handler: %s", translate_error(reason));
+	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);	
+ }
 
+static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
+  	char  buff[100];
+	snprintf(buff, 100, "outbox_failed_callback %s", translate_error(reason));	
+	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
+		//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
+}
+
+static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
+  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+	//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
+
+}
 char *translate_error(AppMessageResult result) {
 	
   switch (result) {
@@ -111,72 +166,26 @@ char *translate_error(AppMessageResult result) {
     default: return "UNKNOWN ERROR";
   }
 }
-void send_to_phone(Tuplet tuple) {
-	DictionaryIterator * iter;	
-	app_message_outbox_begin(&iter);
-  	dict_write_tuplet(iter, &tuple);
-  	dict_write_end(iter);
-	app_message_outbox_send();
-	//int reason = app_message_outbox_send();
-	//snprintf(buff, 100, "send_to_phone %s", translate_error(reason));	
-	//APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
-}
-void in_dropped_handler(AppMessageResult reason, void *context) {	
-	char  buff[100];
-	 snprintf(buff, 100, "in_dropped_handler: %s", translate_error(reason));
-	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);	
- }
-static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  	char  buff[100];
 
-	 snprintf(buff, 100, "outbox_failed_callback %s", translate_error(reason));	
-	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
-		//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
-}
-
-static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
-	//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
-
-}
 static void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
 	int elapsedTime = time(NULL) - msgReceivedTimestamp;
 	static char msg[125] ;
+	//snprintf(msg, 125, "Elaqpsed time: %d", elapsedTime);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG,msg);
 	if(elapsedTime >= WARNING_TIME){
 		snprintf(msg, 125, "No new data received for %d secs. Check your phone.", elapsedTime);
-
 		if (alertWindowIsDisplayed){	 //check if the window hosting the text has been created	
 			text_layer_set_text(displayFields[ALERTTIMER], msg );	
 		}
 		else{
 			//APP_LOG(APP_LOG_LEVEL_DEBUG,"calling show_alert()");
-			show_alert();
+			show_alert(); //DEBUG
 		}
 	}
 	else{
 		if (alertWindowIsDisplayed){			
+			APP_LOG(APP_LOG_LEVEL_DEBUG, "alertWindowIsDisplayed");
 			window_stack_remove(alertWindow, true);	
 		}
 	}
-}
-
- void dashboard_init(){
-	//APP_MSGS = malloc(sizeof(struct APP_MSG )*512); // store msgs and frq
-	displayFont1 = fonts_get_system_font(FONT_KEY_GOTHIC_28);	
-	dispHdgFont1 = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);	
-	page_heading  = text_layer_create(GRect(0, 0, 144, 26)); 
-	text_layer_set_font( page_heading, dispHdgFont1);
-	text_layer_set_text_alignment(page_heading,GTextAlignmentCenter);
-
-	splashScreenMessage = "  Loading..."; //initial splash screen notice. to "Bye" message above 
-	refreshingMsg = "Refreshing...";
-	app_message_register_inbox_received(in_received_handler);
-	app_message_register_inbox_dropped(in_dropped_handler);
-	app_message_register_outbox_failed(outbox_failed_callback);
-	app_message_register_outbox_sent(outbox_sent_callback);
-	const uint32_t inbound_size = app_message_inbox_size_maximum();
-	//const uint32_t outbound_size = app_message_outbox_size_maximum();
-	const uint32_t outbound_size =30;
-   	app_message_open(inbound_size, outbound_size);
-    tick_timer_service_subscribe(SECOND_UNIT, checkMsgTime);	 
 }
