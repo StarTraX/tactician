@@ -7,32 +7,22 @@ static Window *window;
 static	SimpleMenuSection menu_sections[1];
 static SimpleMenuLayer *menu_layer;
 static SimpleMenuItem menu_items[3];
-void back_to_main_menu(){
-	window_stack_pop(true); //this window
-	window_stack_pop(true); // prev window (next-mark or next-leg)
-	window_stack_pop(true); // navigation menu	
-}
-void manual_start(){ 
- 	send_to_phone( TupletInteger(102, 0)); // 0: manual start
-	back_to_main_menu();
-}
-void prev_mark(){
-	 send_to_phone( TupletInteger(102, -1)); // -1:previous mark
-	back_to_main_menu();
-}
-void next_mark(){
-	send_to_phone( TupletInteger(102, 1)); // 1: next mark
-	back_to_main_menu();
-}
+static void window_load(Window *window);
+static void window_unload(Window *window);	
+static void menu_select_callback(int index, void *ctx);
+void manual_start();
+void next_mark();
+void prev_mark();
+void back_to_main_menu();
 
+ void show_nav_mark_menu(){
+ 	window = window_create();
+  	window_set_window_handlers(window, (WindowHandlers) {
+    	.load = window_load,
+    	.unload = window_unload,
 
-static void menu_select_callback(int index, void *ctx) {	
-	if(index==0)
-		prev_mark();		
-	if(index==1)
-		manual_start();
-	if(index==2)
-		next_mark();
+  });
+	window_stack_push(window, true /* Animated */);
 }
 
 static void window_load(Window *window) {
@@ -67,24 +57,37 @@ static void window_load(Window *window) {
 	menu_layer = simple_menu_layer_create(bounds, window, menu_sections, 1, NULL);
    layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
 }
-void window_appear(){
-
-}
 static void window_unload(Window *window) {// Deinitialize resources on window unload that were initialized on window load
 	window_destroy(window);
   	simple_menu_layer_destroy(menu_layer);
 }
 
- void show_nav_mark_menu(){
- window = window_create();
-
-  // Setup the window handlers
-  window_set_window_handlers(window, (WindowHandlers) {
-    .load = window_load,
-    .unload = window_unload,
-	.appear = window_appear,
-  });
-	window_stack_push(window, true /* Animated */);
+static void menu_select_callback(int index, void *ctx) {	
+	if(index==0)
+		prev_mark();		
+	if(index==1)
+		manual_start();
+	if(index==2)
+		next_mark();
 }
 
-
+void manual_start(){ 
+ 	send_to_phone( TupletInteger(102, 0)); // 0: manual start
+	back_to_main_menu();
+}
+void prev_mark(){	
+	send_to_phone( TupletInteger(102, -1)); // -1:previous mark
+	back_to_main_menu();
+}
+void next_mark(){
+	send_to_phone( TupletInteger(102, 1)); // 1: next mark
+	back_to_main_menu();
+}
+void back_to_main_menu(){
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Closing this window ");
+	window_stack_pop(true); //this window
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Closing prev window  ");
+	//window_stack_pop(true); // prev window (next-mark or next-leg)
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Closing navigation menu ");
+	//window_stack_pop(true); // navigation menu	
+}

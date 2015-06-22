@@ -59,14 +59,13 @@ static void select_callbackWithDist(int index, void *ctx) {
 
 
 static void window_load(Window *m_window) {
-
+	//printf("At start , free: %d", heap_bytes_free());
 	num_a_items =0; 
-	new_str = malloc(sizeof(char)*1000); //because mstrtok alters its subject 
+	new_str = malloc(strlen(courseDivsText)); //because mstrtok alters its subject 
 	strcpy(new_str,courseDivsText);
 	menu_items = malloc(sizeof(SimpleMenuItem)*courseDivsCount );
 	int disp_width = 20;// no of chars in lisplay
 	newDivString = malloc(sizeof(char)* disp_width);
-	
 	dispCourseDiv = malloc(sizeof(char *)*courseDivsCount); // number div wind;
 	dispCourseDiv[0] = malloc(courseDivsCount * disp_width * sizeof(char));	 
 	for (int i =0; i < courseDivsCount; i++ ){	  
@@ -79,6 +78,7 @@ static void window_load(Window *m_window) {
 	while (divsOption != NULL){	
 		strcpy(newDivString,divsOption);
 		courseDivWindToken = m2strtok (newDivString, "|");  // split by  "|" for internal Number Wind, | courseIdx		
+
 		distToken = m2strtok (NULL, "|");  // Gets the next token - 
 		snprintf(dispCourseDiv[num_a_items], disp_width,  "%s", courseDivWindToken);
 		if ( strcmp(distToken, "1")==0){
@@ -97,9 +97,7 @@ static void window_load(Window *m_window) {
 		divsOption = mstrtok(NULL, ":");
 		num_a_items++;
 	}
-
-
-  	menu_sections[0] = (SimpleMenuSection){
+ 	menu_sections[0] = (SimpleMenuSection){
 	  	.title = "Courses Menu",
     	.num_items = num_a_items,
     	.items = menu_items,
@@ -116,6 +114,7 @@ static void window_load(Window *m_window) {
     .load = window_load,
     .unload = window_unload,
   });
+	  APP_LOG(APP_LOG_LEVEL_INFO, "handlers created");
 		 window_stack_push(mWindow, true /* Animated */);
 }
 
@@ -124,8 +123,7 @@ static void window_load(Window *m_window) {
 void headingSelected(NumberWindow *window,  void * context){;
 	static char msg[20];
 	snprintf(msg, 20,  "%d|%d ",selectedIndex,(int) number_window_get_value(window));
- 	APP_LOG(APP_LOG_LEVEL_INFO, msg);	
-															
+ 	//APP_LOG(APP_LOG_LEVEL_INFO, msg);																
     send_to_phone( MyTupletCString(105, msg)); //index maps to courseIdx!
 	vibes_short_pulse();
 	window_stack_pop(true); //close this window (number window)

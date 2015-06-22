@@ -1,6 +1,5 @@
 #include <pebble.h>
 #include "start_solution.h"
-#include "performance.h"
 
 #include "dashboard.h"
 #define STARTSOLUTIONCOUNT 4

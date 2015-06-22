@@ -3,11 +3,12 @@
 #include <performance.h>
 #include <navigation_menu.h>
 #include <start_menu.h>
+#include <wind_dir.h>
 # include <aSplash.h>
 
 
 #define NUM_MENU_SECTIONS 1
-#define NUM_FIRST_MENU_ITEMS 3
+#define NUM_FIRST_MENU_ITEMS 4
 
 static Window *window;
 static SimpleMenuLayer *simple_menu_layer;
@@ -34,7 +35,7 @@ static void menu_select_callback(int index, void *ctx);
 
 static void window_appear(){
 	//snprintf(Msg, 100,  "Heap free: %d ", heap_bytes_free());
- 	APP_LOG(APP_LOG_LEVEL_INFO, "Heap free: %d ", heap_bytes_free());
+ 	APP_LOG(APP_LOG_LEVEL_INFO, "window_appear Heap Used: %d, Free: %d ", heap_bytes_used(), heap_bytes_free());
 }
 static void window_load(Window *window) {
 	window_set_click_config_provider(window, config_provider);
@@ -54,6 +55,11 @@ static void window_load(Window *window) {
     .title = "Course Tracking",
     .subtitle = "Course, marks, position",
     .callback = menu_select_callback,
+  }; 
+	first_menu_items[num_a_items++] = (SimpleMenuItem){
+    .title = "Wind",
+    .subtitle = "Wind direction rose",
+    .callback = menu_select_callback,
   };
 // Bind the menu items to the corresponding menu sections
   menu_sections[0] = (SimpleMenuSection){
@@ -65,7 +71,7 @@ static void window_load(Window *window) {
   GRect bounds = layer_get_frame( window_get_root_layer(window));
  simple_menu_layer = simple_menu_layer_create(bounds, window, menu_sections, NUM_MENU_SECTIONS, NULL);
   layer_add_child(window_get_root_layer(window), simple_menu_layer_get_layer(simple_menu_layer));
-		APP_LOG(APP_LOG_LEVEL_INFO, "window_load: main_menu" );
+		//APP_LOG(APP_LOG_LEVEL_INFO, "window_load: main_menu" );
 
 }
 static void window_unload(Window *window) {// Deinitialize resources on window unload that were initialized on window load
@@ -84,16 +90,22 @@ void close_main_window(ClickRecognizerRef recognizer, void *context){
 	//APP_LOG(APP_LOG_LEVEL_INFO, "Back Button"); //force a long click to close this window
 }
 static void menu_select_callback(int index, void *ctx) {
-
-	if(index==0){
-		//APP_LOG(APP_LOG_LEVEL_INFO, "Starting");
+	switch (index){
+	case 0:
+		APP_LOG(APP_LOG_LEVEL_INFO, "Starting");
 		show_start_menu();
-	}
-	if(index==1){
-		//APP_LOG(APP_LOG_LEVEL_INFO, "Performance");
+		break;	
+	case 1:
+		APP_LOG(APP_LOG_LEVEL_INFO, "Performance");
 		show_performance();
-	}
-	if(index==2){
+		break;
+	case 2:
+		APP_LOG(APP_LOG_LEVEL_DEBUG_VERBOSE, "show_nav_menu");
 		show_nav_menu();
+		break;
+	case 3:
+		APP_LOG(APP_LOG_LEVEL_DEBUG_VERBOSE, "show_wind");
+		disp_wind();
+		break;
 	}
 }

@@ -17,17 +17,18 @@ Tuple *dataReceived;
 int mcount=0;
 long msgReceivedTimestamp =2000000000; 
 int intRole; // 0: admin, 1: crew
-//static int dispCounter=0;
+
 static bool isEB = false;
 /* ------------ DECLARATIONS: ------*/
-static void checkMsgTime(struct tm *tick_time, TimeUnits units_changed);
-static void in_received_handler(DictionaryIterator *iter, void *context);
+void checkMsgTime(struct tm *tick_time, TimeUnits units_changed);
+void in_received_handler(DictionaryIterator *iter, void *context);
 void in_dropped_handler(AppMessageResult reason, void *context);
 char *translate_error(AppMessageResult result); 
-static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context);
-static void outbox_sent_callback(DictionaryIterator *iterator, void *context);
+void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context);
+void outbox_sent_callback(DictionaryIterator *iterator, void *context);
 
 void send_to_phone(Tuplet tuple) { 
+	//APP_LOG(APP_LOG_LEVEL_INFO, "send_to_phone Heap free: %d ", (int) heap_bytes_free());
 	DictionaryIterator * iter;	
 	app_message_outbox_begin(&iter);
   	dict_write_tuplet(iter, &tuple);
@@ -35,11 +36,10 @@ void send_to_phone(Tuplet tuple) {
 	app_message_outbox_send();
 	//int reason = app_message_outbox_send();
 	//snprintf(buff, 100, "send_to_phone %s", translate_error(reason));	
-	//APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG,"app_message_outbox_send");
 }
 
  void dashboard_init(){
-	//APP_MSGS = malloc(sizeof(struct APP_MSG )*512); // store msgs and frq
 	displayFont1 = fonts_get_system_font(FONT_KEY_GOTHIC_28);	
 	dispHdgFont1 = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);	
 	page_heading  = text_layer_create(GRect(0, 0, 144, 26)); 
@@ -52,26 +52,35 @@ void send_to_phone(Tuplet tuple) {
 	app_message_register_outbox_failed(outbox_failed_callback);
 	app_message_register_outbox_sent(outbox_sent_callback);
 	const uint32_t inbound_size = app_message_inbox_size_maximum();
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "inbound_size %d",(int) inbound_size);
 	//const uint32_t outbound_size = app_message_outbox_size_maximum();
 	const uint32_t outbound_size =30;
    	app_message_open(inbound_size, outbound_size);
     tick_timer_service_subscribe(SECOND_UNIT, checkMsgTime);	 
+	currentCourseText = malloc(1); //for current course display
+	courseDivsText = malloc(1); 
+	windImageData = malloc(1); 
+	printf("dashboard_init END Used: %d, Free %d",heap_bytes_used(), heap_bytes_free());
+
+
 }
-static void in_received_handler(DictionaryIterator *iter, void *context) {
+void in_received_handler(DictionaryIterator *iter, void *context) {
 	 //if ( heap_bytes_free()<300){
-	 	//snprintf(Msg,60, "Free heap :  %d ",heap_bytes_free());
-		//APP_LOG(APP_LOG_LEVEL_DEBUG,Msg);
+	 //	APP_LOG(APP_LOG_LEVEL_DEBUG,"Free heap :  %d ",heap_bytes_free());
 	 //}
 	msgReceivedTimestamp = time(NULL);
 	 dataReceived =dict_read_first(iter);
 	 while (dataReceived != NULL){
-		 // refresh the time last received		 
+		 // refresh the time last received	
+	 	//APP_LOG(APP_LOG_LEVEL_DEBUG,"dataReceived :  %d Free heap :  %d", (int) dataReceived->key,heap_bytes_free());
+	 
 		 switch( dataReceived->key ) {
 			 case COURSE:
-			 	currentCourseText = malloc(sizeof(char)*strlen(dataReceived->value->cstring)); //for current course display
+				//APP_LOG(APP_LOG_LEVEL_INFO,"COURSE received");
+			 	currentCourseText = realloc(currentCourseText, strlen(dataReceived->value->cstring)); //for current course display
 				snprintf(currentCourseText, strlen(dataReceived->value->cstring),  " %s", dataReceived->value->cstring);
 			 	//APP_LOG(APP_LOG_LEVEL_DEBUG,currentCourseText);
-			 	//APP_LOG(APP_LOG_LEVEL_INFO,"COURSE received");
+
 				break;
 	 		case SERIESLIST: // long list of | delimited series names
 			 	seriesList= malloc(sizeof(char)*strlen(dataReceived->value->cstring)); //for delimited course list
@@ -83,9 +92,9 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
 			 	//APP_LOG(APP_LOG_LEVEL_INFO,"COURSE received");
 				 break;
 			 case COURSEDIVS:
-			 	courseDivsText = malloc(sizeof(char)*strlen(dataReceived->value->cstring));
+			 	courseDivsText = realloc(courseDivsText, strlen(dataReceived->value->cstring));
 			 	snprintf(courseDivsText, strlen(dataReceived->value->cstring),  "%s", dataReceived->value->cstring);
-			 	//APP_LOG(APP_LOG_LEVEL_INFO,"COURSEDIVS received");
+			 	//APP_LOG(APP_LOG_LEVEL_INFO,"COURSEDIVS received ");
 			 	break;
 			 case COURSEDIVSCOUNT:
 			 	courseDivsCount = dataReceived->value->uint32;
@@ -93,20 +102,23 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
 			 	break;
 			 case FLAGDATALOADED: //special case when data is loaded		 	
 			 	splashScreenMessage = "   'bye, thanks.";
-			 	APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
-			 	//window_stack_pop(true); //close the splash window
+			 	//APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
+			 	window_stack_pop(true); //close the splash window
 			 	show_main_menu();
+
 			 	//APP_LOG(APP_LOG_LEVEL_INFO,"FLAGDATALOADED received");
 			 	break;
 			case WPTNAME:
 			 	wptName = dataReceived->value->cstring;
-			 	if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
+			 	//if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
+			 	if( displayFields[dataReceived->key] != NULL ){ //check if the window hosting the text has been created
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	
 				 }
 			 	break;
 			 case NEXTLEGNAME:
 			 	nextLegName = dataReceived->value->cstring;
-			 	if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
+			 	//if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
+			 	if( displayFields[dataReceived->key] != NULL ){ //check if the window hosting the text has been created
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	
 				 }
 			 	break;
@@ -116,8 +128,20 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
 				//snprintf(msg, 125, "ROLE received:%s, intRole %d", dataReceived->value->cstring, intRole);
 				//APP_LOG(APP_LOG_LEVEL_INFO,msg);
 				 break;
+			 case WINDDIR: //// 57 Wind direction image bit array
+			 	windImageDataSize = dataReceived->length;
+				windImageData = realloc(windImageData, windImageDataSize);
+			 	memcpy(windImageData, dataReceived->value->data, dataReceived->length) ;			 	
+				if( s_canvas_layer!= NULL ){
+					layer_mark_dirty(s_canvas_layer);
+					//APP_LOG(APP_LOG_LEVEL_INFO,"Wind direction image loaded");
+					//APP_LOG(APP_LOG_LEVEL_INFO, "window_appear Heap free: %d ", heap_bytes_free());
+				}
+				 break;
+			 
 			 default : //where most of the work is done: receives all the data from the phone-processed sensor data from the GPS and boat
-			 	if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
+			 	//if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
+			 	if( displayFields[dataReceived->key] != NULL ){ //check if the window hosting the text has been created
 					text_layer_set_text(displayFields[dataReceived->key],dataReceived->value->cstring );	
 				 }
 			 	break;
@@ -129,20 +153,18 @@ static void in_received_handler(DictionaryIterator *iter, void *context) {
 	// free(currentCourseText);
 }
 void in_dropped_handler(AppMessageResult reason, void *context) {	
-	char  buff[100];
-	 snprintf(buff, 100, "in_dropped_handler: %s", translate_error(reason));
-	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);	
+	 printf("in_dropped_handler: %s", translate_error(reason));
+
  }
 
-static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  	char  buff[100];
-	snprintf(buff, 100, "outbox_failed_callback %s", translate_error(reason));	
-	APP_LOG(APP_LOG_LEVEL_DEBUG,buff);
-		//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
+void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
+
+	printf( "outbox_failed_callback %s", translate_error(reason));	
+
 }
 
-static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
+  printf( "Outbox send success!");
 	//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
 
 }
@@ -167,11 +189,11 @@ char *translate_error(AppMessageResult result) {
   }
 }
 
-static void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
+void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
 	int elapsedTime = time(NULL) - msgReceivedTimestamp;
-	static char msg[125] ;
+	char msg[125] ;
 	//snprintf(msg, 125, "Elaqpsed time: %d", elapsedTime);
-	//APP_LOG(APP_LOG_LEVEL_DEBUG,msg);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Elaqpsed time: %d", elapsedTime);
 	if(elapsedTime >= WARNING_TIME){
 		snprintf(msg, 125, "No new data received for %d secs. Check your phone.", elapsedTime);
 		if (alertWindowIsDisplayed){	 //check if the window hosting the text has been created	
@@ -179,7 +201,7 @@ static void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
 		}
 		else{
 			//APP_LOG(APP_LOG_LEVEL_DEBUG,"calling show_alert()");
-			show_alert(); //DEBUG
+			//show_alert(); //DEBUG
 		}
 	}
 	else{

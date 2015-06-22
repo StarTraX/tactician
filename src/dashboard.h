@@ -60,6 +60,7 @@ enum  { //incoming message  keys
 	SOLUTIONPOS, //54 "Line dist: " +lineDist
 	ALERTTIMER, //55 no message received since...
 	ROLE, //56 user's role: "admin" or "crew"
+	WINDDIR, //57 wind direction image
 	numberOfDisplays, //count of the number of displays	
 };
 char * courseName, * seriesName;
@@ -81,3 +82,6 @@ int seriesCount; //count of number of series in Club
 int courseDivsCount ; //count of course divs in this series
 void send_to_phone();
 time_t msgReceivedTimestamp;
+char * windImageData;
+int windImageDataSize;
+Layer *s_canvas_layer; 

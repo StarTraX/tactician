@@ -18,16 +18,26 @@ static int dispList [PERFORMANCECOUNT] = {
 	TWS,
 	TWD
 };
-
+static void window_load(Window* window);
+static void window_unload(Window* window);
+static void window_appear();
+static void set_text_layer( int dispIdx );
 char  Msg[100];
 
-static void set_text_layer( int dispIdx ){
-		displayFields[dispIdx] = text_layer_create(GRect(0, rowSpace*(rowIndex++), 144, 40)); //GPS Time
-  		text_layer_set_font( displayFields[dispIdx],displayFont1);
-
-  	scroll_layer_add_child(scroll_layer, (Layer *)displayFields[dispIdx]);
+void show_performance(void) {
+	//APP_LOG(APP_LOG_LEVEL_INFO, "show_performance");
+  	window = window_create();
+	#ifdef PBL_PLATFORM_APLITE
+		window_set_fullscreen(window, true);	
+	#endif
+	 
+ 	window_set_window_handlers(window, (WindowHandlers) {
+	  	.load = window_load,
+    	.unload = window_unload,
+		.appear = window_appear,
+  });
+  window_stack_push(window, true);
 }
-
 static void window_load(Window* window) {	
 	rowIndex=0;
 	rowSpace = 32;
@@ -44,7 +54,6 @@ static void window_load(Window* window) {
 	//text_layer_set_text(displayFields[dispList[1]],"Refreshing..." );	
   layer_add_child(window_get_root_layer(window), scroll_layer_get_layer(scroll_layer));
 }
-
 static void window_unload(Window* window) {	
 	for (int i = 0; i< PERFORMANCECOUNT; i++){
 		layer_set_hidden((Layer * ) displayFields[dispList[i]], true);
@@ -65,14 +74,9 @@ static void window_appear(){
 	send_to_phone(TupletCString(100, "performance"));
 	text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
 }
-void show_performance(void) {
-  	window = window_create();
-//	 window_set_fullscreen(window, true);	
+static void set_text_layer( int dispIdx ){
+		displayFields[dispIdx] = text_layer_create(GRect(0, rowSpace*(rowIndex++), 144, 40)); //GPS Time
+  		text_layer_set_font( displayFields[dispIdx],displayFont1);
 
- 	window_set_window_handlers(window, (WindowHandlers) {
-	  .load = window_load,
-    	.unload = window_unload,
-		.appear = window_appear,
-  });
-  window_stack_push(window, true);
+  	scroll_layer_add_child(scroll_layer, (Layer *)displayFields[dispIdx]);
 }
