@@ -24,11 +24,11 @@
     "sdkVersion": "3",
     "shortName": "Tactician",
     "targetPlatforms": [
-        "aplite",
-        "basalt"
+        "aplite"
+        
     ],
     "uuid": "0ec62310-32fe-4430-9b2b-555e72c3179d",
-    "versionLabel": "2.1.1",
+    "versionLabel": "2.2",
     "watchapp": {
         "watchface": false
     }
