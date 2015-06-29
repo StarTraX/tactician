@@ -70,17 +70,18 @@ static void window_load(Window * window)  {
 
 }
 static void handle_nav_window_unload(Window* window) {
-		for (int i = 0; i< NEXTLEGCOUNT; i++){
-			text_layer_destroy(displayFields[dispList[i]]);
-			displayFields[dispList[i]] = NULL;
-		}												  
+	setCurrentWindow( "none");
+	for (int i = 0; i< NEXTLEGCOUNT; i++){
+		text_layer_destroy(displayFields[dispList[i]]);
+		displayFields[dispList[i]] = NULL;
+	}												  
 	scroll_layer_destroy(scroll_layer);
   	window_stack_remove(window, true);
   	window_destroy(window);
 }
 static void window_appear(){
-		 send_to_phone(TupletCString(100, "nav_next_leg"));
-		text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
+	setCurrentWindow( "nav_next_leg");
+	text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
 }
 
 void show_nav_next_leg(void) {

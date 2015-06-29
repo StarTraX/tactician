@@ -1,7 +1,7 @@
 /* jshint -W099 */ //remove warning about mixed spaces and tabs???
 var WEB_HOST ; //= "http://192.168.0.6:8080/dashboard/";	
-//Pebble.addEventListener("ready",load_data); //deleted for case 
-
+Pebble.addEventListener("ready",load_data); //deleted for case 
+/*
 Pebble.addEventListener("ready",function(){ //DEBUG code for  Case# 465260
  	
 		Pebble.sendAppMessage({ 
@@ -19,7 +19,7 @@ Pebble.addEventListener("ready",function(){ //DEBUG code for  Case# 465260
 				}
 			 );
 });	
-
+*/
 Pebble.addEventListener("showConfiguration",
   function(e) {
 	  console.log("showConfiguration: ");
@@ -57,89 +57,59 @@ Pebble.addEventListener('webviewclosed',
  		load_data();
 	} // if not cancel
 }//anonymous callback function
-	  
-    //Pebble.showSimpleNotificationOnPebble('Configuration window returned: ');
 );
-var watchPhase, selectedWindow, presentPosData, startLinePoints;
-Pebble.addEventListener("appmessage",						
-	 function(e) {
-		// console.log("received appmessage: ");
-		 var mURL;
-		 var mRequest = new XMLHttpRequest(); 
-		for (var msgIdx in e.payload ){
-			if (msgIdx == 100){ // selected WINDOW 
+var selectedWindow = "";
+var presentPosData, startLinePoints;
+Pebble.addEventListener("appmessage", function(e) {
+	var mURL;
+	var mRequest = new XMLHttpRequest(); 
+	for (var msgIdx in e.payload ){
+		switch( Number(msgIdx)){
+			case 100:  	// selected WINDOW 
 				selectedWindow = e.payload[msgIdx];
-				//console.log("received: "+selectedWindow);
-				if (selectedWindow.substr(0,5)=="start" )
-					watchPhase = "start";
-				else if (selectedWindow.substr(0, 4) =="perf" )
-					watchPhase = "perf";
-				else if (selectedWindow.substr(0, 3)=="nav" )
-					watchPhase = "nav";
-			}
-			//console.log("watchPhase: "+watchPhase);
-			if (msgIdx == 101){// selected course
-			set_course(e.payload[msgIdx]);
-			}
-			else if (msgIdx == 102){// from next_mark window
-				
+				if (selectedWindow != "none"){
+					//console.log("appmessage: " +msgIdx +" Payload: "+e.payload[msgIdx]);
+					dispData();
+				}
+				break;
+			case 101:	// selected course
+				set_course(e.payload[msgIdx]);
+				break;
+			case 102:	// from next_mark window	
 				if ( e.payload[msgIdx] === 0){
 					console.log("Next_mark : manual start");
 					mURL =  WEB_HOST + "startNav.php";
 					mRequest = new XMLHttpRequest(); //for navStart.php
 					mRequest.open("GET", mURL, true); 
 					mRequest.send(null);
-					mRequest.onreadystatechange = function () {
-						  if (mRequest.readyState == 4 && mRequest.status == 200 ){
-						   } // if readyState == 4
-					}; //onreadystatechange
 				}
 				else {
 					mURL =  WEB_HOST + "markFwdBack.php?indicator="+e.payload[msgIdx];
-					//console.log("sending: "+mURL );
 					mRequest.open("GET", mURL, true); 
 					mRequest.send(null);	
-					mRequest.onreadystatechange = function () {
-						/* DEBUG
-							if (mRequest.readyState == 4 && mRequest.status == 200 ){
-								var resp = mRequest.responseText;	
-							  	console.log ("markFwdBack.php: with "+  e.payload[msgIdx] + " returned with "+resp);
-						   } // if readyState == 4
-						   */
-						}; //onreadystatechange	
 				}
-			}
-			else if (msgIdx == 103){// from start_line
-				//console.log ("start_line  with "+  e.payload[msgIdx] );
-				mURL = WEB_HOST +"startLinePress.php?whichEnd="+  e.payload[msgIdx]; // Updates & gets location data string
+				break;
+			case 103: // from start_line
+				mURL = WEB_HOST +
+					"startLinePress.php?whichEnd="+  e.payload[msgIdx]; // Updates & gets location data string
 				mRequest.open("GET", mURL, true);
 				mRequest.send(null);
-				mRequest.onreadystatechange = function () {
-					if (mRequest.readyState == 4 ){
-						if(mRequest.status == 200){
-						} // if status == 200
-					} // if readyState == 4
-				}; //onreadystatechange
-				if (e.payload[msgIdx] == "BOAT") print_division();  //refresh course wirh new start line (bot)
-			}
-			else if (msgIdx == 104){// Start time 10, 5, 4 mins, as minutes
+				if (e.payload[msgIdx] == "BOAT") print_division();  //refresh course wirh new start line (boat)
+				break;
+			case 104:	 // Start time 10, 5, 4 mins, as minutes
 				startTime = Number(presentPosData.timeMs) + Number(e.payload[msgIdx]) *1000 ; // to thous
 				mURL = WEB_HOST +"startLinePress.php?startTime="+  startTime; // Updates & gets location data string
 				mRequest.open("GET", mURL, true);
 				mRequest.send(null);
-				mRequest.onreadystatechange = function () {
-					if (mRequest.readyState == 4 ){
-						if(mRequest.status == 200){
-						} // if status == 200
-					} // if readyState == 4
-				}; //onreadystatechange
-			}
-			else if (msgIdx == 105){//  selected course PLUS BRG to mark(s)					
+				break;
+			case 105:	 //  selected course PLUS BRG to mark(s)					
 				set_courseWithBrg(e.payload[msgIdx]);
-			}
-		}
-});  //Pebble.addEventListener("appmessage",	
-						
+				break;
+		} //switch
+	} //for
+} //anonymous appmessage callback function
+);  //Pebble.addEventListener("appmessage",	
+		
 function set_course(courseIdx){
 	//console.log("set_course: "+courseIdx);
 	var url = WEB_HOST + "pebbleGetCourses.php?set_course="+courseIdx; 
@@ -423,6 +393,7 @@ function commsTimer(){
 }
 
 var prevNavData = " ";
+var JSONcombinedData = "";
 function readNavData(){
 	pollComplete = false;
 	var url = WEB_HOST + "readCombinedData.php?cacheBuster="+new Date().getTime(); // gets location data and start line string
@@ -433,9 +404,10 @@ function readNavData(){
 			   	if(readNavDataRequest.status == 200){ // or 404 not found
 				   	var mData = readNavDataRequest.responseText;
 				   	if (mData.length >0){
+						JSONcombinedData = mData;
 						if (mData !=prevNavData){ //Only send changed data - enables watch to monitor data receipt
 							prevNavData = mData;
-							dispData(mData);   	
+							//dispData();   	
 						}	
 						else{
 							//console.log("readNavData: Same data");
@@ -505,14 +477,13 @@ function dampAngle(prevVal, thisVal){
 }
 var prevTimeMs = 0;
 
-function dispData(JSONcombinedData){
+function dispData(){ // uses global JSONcombinedData
+	//console.log("dispData: selectedWindow: "+ selectedWindow);
 	navDataFlag = false; // no longer waiting for response
 	var combinedData =JSON.parse(JSONcombinedData); 
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "HERE");
 	presentPosData =combinedData.presentPosData;
 	startLinePoints=combinedData.startLinePoints;
-	windDirImageData = combinedData.windDirImage; // Array of numbers
-	//console.log ("windDirImage 26:129: "+ windDirImageData[26]);
 	startTime = Number(startLinePoints.startTime); // sets start time from StartLineData	
 	prevTimeMs = presentPosData.timeMs;
 	var reportTime = new Date(Number(presentPosData.timeMs));
@@ -722,7 +693,7 @@ function dispData(JSONcombinedData){
 	 5m: S- 2.5  35
 	 20m: NE 0.2  36 */
 	var msgObj  ;
-	if (watchPhase == "start"){	// display start-line details and solution
+	if (selectedWindow.substr(0,5)=="start" ){// display start-line details and solution
 		if (startLinePoints.boatLat === undefined) // not till response from startLine HTTP request
 			return;	
 		 msgObj = calcStartSolution(formattedReportTime);
@@ -785,29 +756,35 @@ function dispData(JSONcombinedData){
 			"24" : "AWS " +nextLegAWSDisp, //NEXTLEGAWS
 		};
 	}
-	else if (selectedWindow == "wind"){
+	else if (selectedWindow == "windRose"){
+		var windDirImageS = combinedData.windDirImageS;
+		windDirImageData = windDirImageS.windDirImage; // Array of numbers
 		msgObj = {
-			"57" : windDirImageData //wind image bit array
+			"57" : windDirImageData //wind rose image bit array
 		};
 	}
-	
-	// always tack these on for the Navigation Menu
-	if (msgObj === undefined){
+	else if (selectedWindow == "windRecent"){
+		var windDirImageS = combinedData.windDirImageS;
+		var windDirRecent = windDirImageS.windDirRecent; // {array, mean }
+		msgObj = {
+			"58": windDirRecent.windDirImageRecent,
+			"59": windDirRecent.mean
+		};		
+	}
+		
+	if (msgObj === undefined){ // always tack these on for the Navigation Menu
 		msgObj ={} ;}
 	msgObj["0"] = formattedReportTime; //GPS Time
 	msgObj["12"] =  presentPosData.legIdx+": "+ presentPosData.WptName; //WptName
 	msgObj["19"] =  presentPosData.nextLegName; //next leg name NEXTLEGNAME
-	//console.log("HERE1:" +JSON.stringify( msgObj));
-		Pebble.sendAppMessage(msgObj, function(e) { //Success callback
-			lastPolledTimeStamp = Date.now();	//managing the polling process
-			// console.log("NavDatSend OK");
-			pollComplete = true;
-			},
+	Pebble.sendAppMessage(msgObj, function(e) { //Success callback
+		lastPolledTimeStamp = Date.now();	//managing the polling process
+		pollComplete = true;
+		},
 		function(e) { //Fail callback
 			 //console.log("NavDatSend FAIL");
 		}
 	);	
-	//};
 } //dispData(JSONcombinedData)
 
 /*

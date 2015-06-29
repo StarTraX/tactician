@@ -46,7 +46,7 @@ static void window_load(Window* window) {
 			
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
-  	scroll_layer_set_click_config_onto_window(scroll_layer, window);
+  	scroll_layer_set_click_config_onto_window(scroll_layer, window); // makes the up/down buttons work (?)
   	scroll_layer_set_content_size(scroll_layer, GSize(144,400)); // size of the surface that scrolls???
 	for (int i = 0; i< PERFORMANCECOUNT; i++){
 		set_text_layer(dispList[i]);
@@ -55,6 +55,7 @@ static void window_load(Window* window) {
   layer_add_child(window_get_root_layer(window), scroll_layer_get_layer(scroll_layer));
 }
 static void window_unload(Window* window) {	
+	setCurrentWindow( "none");
 	for (int i = 0; i< PERFORMANCECOUNT; i++){
 		layer_set_hidden((Layer * ) displayFields[dispList[i]], true);
 		text_layer_destroy(displayFields[dispList[i]]);
@@ -71,7 +72,7 @@ static void window_unload(Window* window) {
 		window = NULL;
 }
 static void window_appear(){
-	send_to_phone(TupletCString(100, "performance"));
+	setCurrentWindow( "performance");
 	text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
 }
 static void set_text_layer( int dispIdx ){

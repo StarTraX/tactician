@@ -61,6 +61,8 @@ enum  { //incoming message  keys
 	ALERTTIMER, //55 no message received since...
 	ROLE, //56 user's role: "admin" or "crew"
 	WINDDIR, //57 wind direction image
+	WINDDIRRECENT, //58 // recent wind dir image
+	WINDDIRMEAN, //59 // wind dir mean 
 	numberOfDisplays, //count of the number of displays	
 };
 char * courseName, * seriesName;
@@ -84,4 +86,12 @@ void send_to_phone();
 time_t msgReceivedTimestamp;
 char * windImageData;
 int windImageDataSize;
-Layer *s_canvas_layer; 
+Layer *s_canvas_layer;
+// wind_recent history  
+char * twdBackgroundImageBitArray;
+char * twdWindDirImageRecentBitArray;
+int imageDataSize;
+int * start;
+int * histDataSize;
+void setCurrentWindow( char *);
+

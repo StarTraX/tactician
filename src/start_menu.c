@@ -64,7 +64,6 @@ static void window_load(Window *window) {
    layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
 }
 static void window_appear(){
-	//send_to_phone(TupletCString(100, "start_menu"));
 }
 static void window_unload(Window *window) {// Deinitialize resources on window unload that were initialized on window load
 	window_destroy(window);

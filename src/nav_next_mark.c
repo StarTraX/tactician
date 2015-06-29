@@ -73,6 +73,7 @@ static void add_text_layer( int dispIdx ){
   	scroll_layer_add_child(scroll_layer, (Layer *)displayFields[dispIdx]);
 }
 static void window_unload(Window* window) {
+	setCurrentWindow("none");
 	for (int i =0; i <NEXTMARKCOUNT; i++){
 		text_layer_destroy(displayFields[dispList[i]]);
 		displayFields[dispList[i]] = NULL;
@@ -86,6 +87,6 @@ static void window_unload(Window* window) {
 }
  static void window_appear(){
 		text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
-	 	send_to_phone(TupletCString(100, "nav_next_mark"));
+		setCurrentWindow("nav_next_mark");
 
 }

@@ -18,17 +18,22 @@
                 "menuIcon": true,
                 "name": "MENU_IMAGE",
                 "type": "png"
-            }
+            },
+			{
+        		"name": "HEADING_BIT_ARRAY",
+        		"file": "data/bigImage.dat",
+        		"type": "raw"
+     		}
         ]
     },
     "sdkVersion": "3",
     "shortName": "Tactician",
     "targetPlatforms": [
-        "aplite"
+        "aplite", "basalt"
         
     ],
     "uuid": "0ec62310-32fe-4430-9b2b-555e72c3179d",
-    "versionLabel": "2.2",
+    "versionLabel": "2.3",
     "watchapp": {
         "watchface": false
     }

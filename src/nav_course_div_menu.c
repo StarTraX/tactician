@@ -3,7 +3,7 @@
 #include "dashboard.h"
 #include "mstrtok.h"
 #include "m2strtok.h"
- Window *mWindow;
+ static Window *window;
  SimpleMenuLayer *menu_layer;
  SimpleMenuSection menu_sections[1];
  SimpleMenuItem * menu_items;
@@ -17,27 +17,24 @@ static void show_heading_select();
 void headingSelected(NumberWindow *window,void* context);
 static int selectedIndex;
 int isBrgMark = 0; // context variable: 0 = no, 1 = yes
-static void window_unload(Window *mWindow) {// Deinitialize resources on window unload that were initialized on window load
-  simple_menu_layer_destroy(menu_layer);
-	window_destroy(mWindow);
-	free(menu_items);
-		free(new_str);
+static void window_unload(Window *window) {// Deinitialize resources on window unload that were initialized on window load
+	simple_menu_layer_destroy(menu_layer);
+	free(menu_items); 	
+	free(new_str);	
 	free(divsOption);
-	free(newDivString);	
-	free(dispCourseDiv[0]);
+	free(newDivString);	 	
+	free(dispCourseDiv[0]);	
 	free(dispCourseDiv);
+	window_destroy(window);
 }
 static void select_callback(int index, void *context) {	
 	int * pointerToValue = (int*) context;
 	if(* pointerToValue == 0){
-		 send_to_phone( TupletInteger(101, index)); //index maps to courseIdx!
-
-
- 	send_to_phone( TupletInteger(101, index)); //index maps to courseIdx!
-	vibes_short_pulse();
-	window_stack_pop(true); //close this window (course menu)
-	window_stack_pop(true); //close prev window current Course)
-	window_stack_pop(true); //close  navigation menu
+		send_to_phone( TupletInteger(101, index)); //index maps to courseIdx!
+		vibes_short_pulse();
+		window_stack_pop(true); //close this window (course menu)
+		//window_stack_pop(true); //close prev window current Course)
+		//window_stack_pop(true); //close  navigation menu
 	}
 }
 
@@ -58,7 +55,7 @@ static void select_callbackWithDist(int index, void *ctx) {
 }
 
 
-static void window_load(Window *m_window) {
+static void window_load(Window *window) {
 	//printf("At start , free: %d", heap_bytes_free());
 	num_a_items =0; 
 	new_str = malloc(strlen(courseDivsText)); //because mstrtok alters its subject 
@@ -103,19 +100,19 @@ static void window_load(Window *m_window) {
     	.items = menu_items,
 	};
 
-   	Layer *window_layer = window_get_root_layer(mWindow);
+   	Layer *window_layer = window_get_root_layer(window);
   	GRect bounds = layer_get_frame(window_layer);
-	menu_layer = simple_menu_layer_create(bounds, mWindow, menu_sections, 1, (void*) &isBrgMark);
+	menu_layer = simple_menu_layer_create(bounds, window, menu_sections, 1, (void*) &isBrgMark);
   	layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
 }
  void show_nav_divs_menu(){
- mWindow = window_create();
-  window_set_window_handlers(mWindow, (WindowHandlers) {
+ window = window_create();
+  window_set_window_handlers(window, (WindowHandlers) {
     .load = window_load,
     .unload = window_unload,
   });
 	  APP_LOG(APP_LOG_LEVEL_INFO, "handlers created");
-		 window_stack_push(mWindow, true /* Animated */);
+		 window_stack_push(window, true /* Animated */);
 }
 
 //http://stackoverflow.com/questions/22289532/pebble-c-tupletcstring-compile-error

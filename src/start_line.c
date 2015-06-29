@@ -36,6 +36,7 @@ static void window_load(Window *window) {
 	layer_add_child(window_get_root_layer(window), scroll_layer_get_layer(scroll_layer));
 }
 static void handle_nav_window_unload(Window* window) {
+	setCurrentWindow("none");
 	for (int i =0; i <STARTLINECOUNT; i++){
 		text_layer_destroy(displayFields[dispList[i]]);
 		displayFields[dispList[i]] = NULL;
@@ -46,7 +47,7 @@ static void handle_nav_window_unload(Window* window) {
 }
 static void window_appear(){
 	text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
-	send_to_phone(TupletCString(100, "start_line"));
+	setCurrentWindow("start_line");
 }
 void show_start_line(void) {
   //initialise_nav_next_mark_ui();

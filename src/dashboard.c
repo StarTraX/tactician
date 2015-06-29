@@ -18,7 +18,6 @@ int mcount=0;
 long msgReceivedTimestamp =2000000000; 
 int intRole; // 0: admin, 1: crew
 
-static bool isEB = false;
 /* ------------ DECLARATIONS: ------*/
 void checkMsgTime(struct tm *tick_time, TimeUnits units_changed);
 void in_received_handler(DictionaryIterator *iter, void *context);
@@ -26,17 +25,20 @@ void in_dropped_handler(AppMessageResult reason, void *context);
 char *translate_error(AppMessageResult result); 
 void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context);
 void outbox_sent_callback(DictionaryIterator *iterator, void *context);
+/* ------------END DECLARATIONS ---*/
+static char * currentWindow = "none";
 
-void send_to_phone(Tuplet tuple) { 
-	//APP_LOG(APP_LOG_LEVEL_INFO, "send_to_phone Heap free: %d ", (int) heap_bytes_free());
+void setCurrentWindow( char *  receivedCurrentWindow){
+	currentWindow = receivedCurrentWindow;
+}
+
+void send_to_phone(Tuplet tuplet) { 
+	//printf("send_to_phone key %d ", (int) tuplet.key);
 	DictionaryIterator * iter;	
 	app_message_outbox_begin(&iter);
-  	dict_write_tuplet(iter, &tuple);
+  	dict_write_tuplet(iter, &tuplet);
   	dict_write_end(iter);
 	app_message_outbox_send();
-	//int reason = app_message_outbox_send();
-	//snprintf(buff, 100, "send_to_phone %s", translate_error(reason));	
-	//APP_LOG(APP_LOG_LEVEL_DEBUG,"app_message_outbox_send");
 }
 
  void dashboard_init(){
@@ -61,6 +63,8 @@ void send_to_phone(Tuplet tuple) {
 	courseDivsText = malloc(1); 
 	windImageData = malloc(1); 
 	printf("dashboard_init END Used: %d, Free %d",heap_bytes_used(), heap_bytes_free());
+	start = malloc(sizeof(int));
+	histDataSize = malloc(sizeof(int));
 
 
 }
@@ -128,16 +132,29 @@ void in_received_handler(DictionaryIterator *iter, void *context) {
 				//snprintf(msg, 125, "ROLE received:%s, intRole %d", dataReceived->value->cstring, intRole);
 				//APP_LOG(APP_LOG_LEVEL_INFO,msg);
 				 break;
-			 case WINDDIR: //// 57 Wind direction image bit array
+			 case WINDDIR: // 57 Wind rose direction image bit array
 			 	windImageDataSize = dataReceived->length;
 				windImageData = realloc(windImageData, windImageDataSize);
 			 	memcpy(windImageData, dataReceived->value->data, dataReceived->length) ;			 	
-				if( s_canvas_layer!= NULL ){
+				if( s_canvas_layer!= NULL )
 					layer_mark_dirty(s_canvas_layer);
-					//APP_LOG(APP_LOG_LEVEL_INFO,"Wind direction image loaded");
-					//APP_LOG(APP_LOG_LEVEL_INFO, "window_appear Heap free: %d ", heap_bytes_free());
-				}
 				 break;
+			 case WINDDIRRECENT: // 58 windDirImageRecent
+			 	imageDataSize = dataReceived->length;
+			 	//printf("WINDDIRRECENT length %d Free: %d",(int) dataReceived->length, heap_bytes_free());
+			    *histDataSize = (int) dataReceived->length;
+				twdWindDirImageRecentBitArray = realloc(twdWindDirImageRecentBitArray, imageDataSize);
+				memcpy(twdWindDirImageRecentBitArray, dataReceived->value->data, dataReceived->length) ;		
+				//printf("twdWindDirImageRecentBitArray[26] %d ",twdWindDirImageRecentBitArray[26]);
+			 	break;	
+			case WINDDIRMEAN: //59 // wind dir mean 
+			 	//printf("start received %d",(int) dataReceived->value->int32);
+			 	*start = (int) dataReceived->value->int32;
+			 	//twd_detail();
+				if( s_canvas_layer!= NULL )
+					layer_mark_dirty(s_canvas_layer);
+				break;
+
 			 
 			 default : //where most of the work is done: receives all the data from the phone-processed sensor data from the GPS and boat
 			 	//if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
@@ -164,7 +181,7 @@ void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reaso
 }
 
 void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
-  printf( "Outbox send success!");
+  //printf( "Outbox send success!");
 	//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
 
 }
@@ -190,18 +207,22 @@ char *translate_error(AppMessageResult result) {
 }
 
 void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
+	//printf("checkMsgTime current window: %s", currentWindow);
+	DictionaryIterator * iter;	
+	app_message_outbox_begin(&iter);
+	Tuplet tuplet = TupletCString(100, currentWindow);
+  	dict_write_tuplet(iter, &tuplet);
+  	dict_write_end(iter);
+	app_message_outbox_send();
+
 	int elapsedTime = time(NULL) - msgReceivedTimestamp;
-	char msg[125] ;
-	//snprintf(msg, 125, "Elaqpsed time: %d", elapsedTime);
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "Elaqpsed time: %d", elapsedTime);
 	if(elapsedTime >= WARNING_TIME){
-		snprintf(msg, 125, "No new data received for %d secs. Check your phone.", elapsedTime);
+		snprintf( Msg, 90, "No new data received for %d secs.", elapsedTime);
 		if (alertWindowIsDisplayed){	 //check if the window hosting the text has been created	
-			text_layer_set_text(displayFields[ALERTTIMER], msg );	
+			text_layer_set_text(displayFields[ALERTTIMER], Msg);	
 		}
 		else{
-			//APP_LOG(APP_LOG_LEVEL_DEBUG,"calling show_alert()");
-			//show_alert(); //DEBUG
+			show_alert(); //DEBUG - remove for testing
 		}
 	}
 	else{

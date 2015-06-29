@@ -39,6 +39,7 @@ static void window_load (Window* window) {
 }
 
 static void handle_window_unload(Window* window) {	
+	setCurrentWindow("none");
 	for (int i = 0; i< STARTSOLUTIONCOUNT; i++){
 		layer_set_hidden((Layer * ) displayFields[dispList[i]], true);
 		text_layer_destroy(displayFields[dispList[i]]);
@@ -52,7 +53,7 @@ static void handle_window_unload(Window* window) {
 }
 static void window_appear(){ 
 	text_layer_set_text(displayFields[dispList[0]], refreshingMsg);
-	send_to_phone(TupletCString(100, "start_solution"));
+	setCurrentWindow("start_solution");
 }
 void show_start_solution(void) {
    	window = window_create();

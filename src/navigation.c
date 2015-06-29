@@ -39,6 +39,7 @@ static void window_load(Window *window) {
   layer_add_child(window_get_root_layer(window), scroll_layer_get_layer(scroll_layer));
 }
 static void handle_nav_window_unload(Window* window) {
+	setCurrentWindow( "none");
 	for (int i =0; i <SPEEDHDGCOUNT; i++){
 		text_layer_destroy(displayFields[dispList[i]]);
 		displayFields[dispList[i]] = NULL;
@@ -49,7 +50,7 @@ static void handle_nav_window_unload(Window* window) {
   	window_destroy(window);
 }
 static void window_appear(){
-	send_to_phone(TupletCString(100, "navigation"));
+	setCurrentWindow( "navigation");
 	text_layer_set_text(displayFields[dispList[1]], refreshingMsg);
 }
 void show_navigation(void) {
