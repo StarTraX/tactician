@@ -22,7 +22,7 @@ Pebble.addEventListener("ready",function(){ //DEBUG code for  Case# 465260
 */
 Pebble.addEventListener("showConfiguration",
   function(e) {
-	  console.log("showConfiguration: ");
+	  //console.log("showConfiguration: ");
 	var pebbleConfigURL = "http://gpsanimator.com/tactician/pebbleConfig";
 	Pebble.openURL(pebbleConfigURL);
 	}
@@ -65,12 +65,11 @@ Pebble.addEventListener("appmessage", function(e) {
 	var mRequest = new XMLHttpRequest(); 
 	for (var msgIdx in e.payload ){
 		switch( Number(msgIdx)){
-			case 100:  	// selected WINDOW 
+			case 100:  	// selected WINDOW request for different data
 				selectedWindow = e.payload[msgIdx];
-				if (selectedWindow != "none"){
-					//console.log("appmessage: " +msgIdx +" Payload: "+e.payload[msgIdx]);
-					dispData();
-				}
+				//console.log("PHONE received: \""+selectedWindow+"\"");
+				if (newDataFlag)
+					dispData();	
 				break;
 			case 101:	// selected course
 				set_course(e.payload[msgIdx]);
@@ -393,6 +392,7 @@ function commsTimer(){
 }
 
 var prevNavData = " ";
+var newDataFlag = true;
 var JSONcombinedData = "";
 function readNavData(){
 	pollComplete = false;
@@ -407,9 +407,11 @@ function readNavData(){
 						JSONcombinedData = mData;
 						if (mData !=prevNavData){ //Only send changed data - enables watch to monitor data receipt
 							prevNavData = mData;
+							newDataFlag = true;
 							//dispData();   	
 						}	
 						else{
+							newDataFlag = false;
 							//console.log("readNavData: Same data");
 							pollComplete = true;
 						}
@@ -478,7 +480,6 @@ function dampAngle(prevVal, thisVal){
 var prevTimeMs = 0;
 
 function dispData(){ // uses global JSONcombinedData
-	//console.log("dispData: selectedWindow: "+ selectedWindow);
 	navDataFlag = false; // no longer waiting for response
 	var combinedData =JSON.parse(JSONcombinedData); 
 	//Pebble.showSimpleNotificationOnPebble("DEBUG", "HERE");
@@ -756,6 +757,7 @@ function dispData(){ // uses global JSONcombinedData
 			"24" : "AWS " +nextLegAWSDisp, //NEXTLEGAWS
 		};
 	}
+/*
 	else if (selectedWindow == "windRose"){
 		var windDirImageS = combinedData.windDirImageS;
 		windDirImageData = windDirImageS.windDirImage; // Array of numbers
@@ -763,6 +765,7 @@ function dispData(){ // uses global JSONcombinedData
 			"57" : windDirImageData //wind rose image bit array
 		};
 	}
+
 	else if (selectedWindow == "windRecent"){
 		var windDirImageS = combinedData.windDirImageS;
 		var windDirRecent = windDirImageS.windDirRecent; // {array, mean }
@@ -770,7 +773,34 @@ function dispData(){ // uses global JSONcombinedData
 			"58": windDirRecent.windDirImageRecent,
 			"59": windDirRecent.mean
 		};		
+	}*/
+	else if (selectedWindow == "windRose"||selectedWindow == "windRecent"){
+		var windDirImageS;
+		if (selectedWindow == "windRose")
+			windDirImageS = combinedData.windDirImageS.windRose; // Array[2][1296]
+		else
+			windDirImageS = combinedData.windDirImageS.windRecent; // Array[2][1296]
+		Pebble.sendAppMessage({ 
+			"60": windDirImageS[0] //0,2,4..	EVEN			
+			}, function(e) { //Success callback	
+				//console.log("PHONE Sent first(EVEN) BYTES SUCCESS:")				
+				Pebble.sendAppMessage({ //send second part on ACK of first part
+						"61": windDirImageS[1], //1,3,5..		ODD	
+						"0" : formattedReportTime //GPS Time 	
+						}, function(e) { //Success callback	
+						//console.log("PHONE Sent second(ODD) BYTES SUCCESS:")					
+					},function(e) { //Fail callback	
+					//console.log("PHONE Sent second(ODD) BYTES FAILED:")  ; 								
+					}	//fail callback
+				);//send second part AppMessage
+			},function(e) { //Fail callback	
+				//console.log("PHONE Sent first(EVEN) BYTES FAILED:")  ; 								
+			}	//fail callback	
+			
+			);//sendAppMessage
+		
 	}
+	// else it's none, but send time as a heartbeat 
 		
 	if (msgObj === undefined){ // always tack these on for the Navigation Menu
 		msgObj ={} ;}
@@ -785,7 +815,7 @@ function dispData(){ // uses global JSONcombinedData
 			 //console.log("NavDatSend FAIL");
 		}
 	);	
-} //dispData(JSONcombinedData)
+} 
 
 /*
  * calcApparent (TWS: knots, mps, TWA: degrees, BTV:kts, mps

@@ -28,8 +28,16 @@ void outbox_sent_callback(DictionaryIterator *iterator, void *context);
 /* ------------END DECLARATIONS ---*/
 static char * currentWindow = "none";
 
-void setCurrentWindow( char *  receivedCurrentWindow){
+void setCurrentWindow( char *  receivedCurrentWindow){ //send windowName or "none" in between 
+	//printf("WATCH setCurrentWindow sent: %s", currentWindow);
 	currentWindow = receivedCurrentWindow;
+	DictionaryIterator * iter;	
+	app_message_outbox_begin(&iter);
+	Tuplet tuplet = TupletCString(100, currentWindow);
+  	dict_write_tuplet(iter, &tuplet);
+  	dict_write_end(iter);
+	app_message_outbox_send();
+
 }
 
 void send_to_phone(Tuplet tuplet) { 
@@ -54,7 +62,7 @@ void send_to_phone(Tuplet tuplet) {
 	app_message_register_outbox_failed(outbox_failed_callback);
 	app_message_register_outbox_sent(outbox_sent_callback);
 	const uint32_t inbound_size = app_message_inbox_size_maximum();
-	//APP_LOG(APP_LOG_LEVEL_DEBUG, "inbound_size %d",(int) inbound_size);
+	//APP_LOG(APP_LOG_LEVEL_DEBUG, "inbound_size %d",(int) inbound_size); //Aplite, discovered 2026
 	//const uint32_t outbound_size = app_message_outbox_size_maximum();
 	const uint32_t outbound_size =30;
    	app_message_open(inbound_size, outbound_size);
@@ -62,10 +70,23 @@ void send_to_phone(Tuplet tuplet) {
 	currentCourseText = malloc(1); //for current course display
 	courseDivsText = malloc(1); 
 	windImageData = malloc(1); 
-	printf("dashboard_init END Used: %d, Free %d",heap_bytes_used(), heap_bytes_free());
 	start = malloc(sizeof(int));
 	histDataSize = malloc(sizeof(int));
-
+	printf("dashboard_init BEFORE imageData malloc: %d, Free %d",heap_bytes_used(), heap_bytes_free());
+	evenImageData  = malloc(1296); //0,2,4...
+	oddImageData = malloc(1296); //1,3,5
+	/*if (evenImageData ==NULL )
+		printf("evenImageData is NULL");
+	else 
+		printf("evenImageData is allocated OK");
+	printf("dashboard_init AFTER evenImageData malloc: %d, Free %d",heap_bytes_used(), heap_bytes_free());
+	
+	if (oddImageData ==NULL )
+		printf("oddImageData is NULL");
+	else 
+		printf("oddImageData is allocated OK");
+	printf("dashboard_init AFTER oddImageData malloc: %d, Free %d",heap_bytes_used(), heap_bytes_free());
+	*/
 
 }
 void in_received_handler(DictionaryIterator *iter, void *context) {
@@ -135,27 +156,26 @@ void in_received_handler(DictionaryIterator *iter, void *context) {
 			 case WINDDIR: // 57 Wind rose direction image bit array
 			 	windImageDataSize = dataReceived->length;
 				windImageData = realloc(windImageData, windImageDataSize);
-			 	memcpy(windImageData, dataReceived->value->data, dataReceived->length) ;			 	
+			 	memcpy(windImageData, dataReceived->value->data, dataReceived->length) ;	
 				if( s_canvas_layer!= NULL )
 					layer_mark_dirty(s_canvas_layer);
 				 break;
-			 case WINDDIRRECENT: // 58 windDirImageRecent
-			 	imageDataSize = dataReceived->length;
-			 	//printf("WINDDIRRECENT length %d Free: %d",(int) dataReceived->length, heap_bytes_free());
-			    *histDataSize = (int) dataReceived->length;
-				twdWindDirImageRecentBitArray = realloc(twdWindDirImageRecentBitArray, imageDataSize);
-				memcpy(twdWindDirImageRecentBitArray, dataReceived->value->data, dataReceived->length) ;		
-				//printf("twdWindDirImageRecentBitArray[26] %d ",twdWindDirImageRecentBitArray[26]);
-			 	break;	
-			case WINDDIRMEAN: //59 // wind dir mean 
-			 	//printf("start received %d",(int) dataReceived->value->int32);
-			 	*start = (int) dataReceived->value->int32;
-			 	//twd_detail();
-				if( s_canvas_layer!= NULL )
-					layer_mark_dirty(s_canvas_layer);
-				break;
+			 case WINDDIRRECENTEVEN: //60 // receive  even  bits 0,2,4...
+				imageDataSize = (int) dataReceived->length;
+				//printf("WATCH received first(ODD) bytes");
+				memcpy(evenImageData, dataReceived->value->data, imageDataSize) ;	
+			break;	
 
-			 
+		 	case WINDIRRECENTODD: //61: // receive odd  bits
+				imageDataSize = (int) dataReceived->length;
+				//printf("WATCH received second(EVEN) bytes");
+				memcpy(oddImageData, dataReceived->value->data, imageDataSize) ;	
+				if( s_canvas_layer != NULL ){
+					setCurrentWindow("none"); // hold updates till this window build is complete
+					layer_mark_dirty(s_canvas_layer);			
+				}
+				break;	
+
 			 default : //where most of the work is done: receives all the data from the phone-processed sensor data from the GPS and boat
 			 	//if( text_layer_get_layer(displayFields[dataReceived->key]) != NULL ){ //check if the window hosting the text has been created
 			 	if( displayFields[dataReceived->key] != NULL ){ //check if the window hosting the text has been created
@@ -170,20 +190,15 @@ void in_received_handler(DictionaryIterator *iter, void *context) {
 	// free(currentCourseText);
 }
 void in_dropped_handler(AppMessageResult reason, void *context) {	
-	 printf("in_dropped_handler: %s", translate_error(reason));
-
+	// printf("WATCH in_dropped_handler: %s", translate_error(reason));
  }
 
 void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-
-	printf( "outbox_failed_callback %s", translate_error(reason));	
-
+	//printf( "WATCH send FAILED %s", translate_error(reason));	
 }
 
 void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
-  //printf( "Outbox send success!");
-	//app_comm_set_sniff_interval	(SNIFF_INTERVAL_NORMAL);
-
+  	//printf( "WATCH send SUCCESS ");	
 }
 char *translate_error(AppMessageResult result) {
 	
@@ -208,13 +223,15 @@ char *translate_error(AppMessageResult result) {
 
 void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
 	//printf("checkMsgTime current window: %s", currentWindow);
+/*	printf("WATCH checkMsgTime sent: %s", currentWindow);
+
 	DictionaryIterator * iter;	
 	app_message_outbox_begin(&iter);
 	Tuplet tuplet = TupletCString(100, currentWindow);
   	dict_write_tuplet(iter, &tuplet);
   	dict_write_end(iter);
 	app_message_outbox_send();
-
+*/
 	int elapsedTime = time(NULL) - msgReceivedTimestamp;
 	if(elapsedTime >= WARNING_TIME){
 		snprintf( Msg, 90, "No new data received for %d secs.", elapsedTime);

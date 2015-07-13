@@ -62,16 +62,16 @@ enum  { //incoming message  keys
 	ROLE, //56 user's role: "admin" or "crew"
 	WINDDIR, //57 wind direction image
 	WINDDIRRECENT, //58 // recent wind dir image
-	WINDDIRMEAN, //59 // wind dir mean 
+	WINDDIRMEAN, //59 // wind dir mean numberOfDisplays
+	WINDDIRRECENTEVEN, // 60 recent TWD 10-min history odd bytes (0,2,4..
+	WINDIRRECENTODD, // 61 recent TWD 10-min history even bytes (1,3,5
 	numberOfDisplays, //count of the number of displays	
-};
+} ;
 char * courseName, * seriesName;
 int intRole;  // 0: admin, not 0: crew
 char * wptName, * nextLegName;
 char * adminRole; // = "admin";
 TextLayer * displayFields[numberOfDisplays];
-//TextLayer ** displayFields;
-//char ** mAns;
 char * currentCourseText;
 char * courseDivsText;
 char * seriesList;
@@ -88,10 +88,12 @@ char * windImageData;
 int windImageDataSize;
 Layer *s_canvas_layer;
 // wind_recent history  
-char * twdBackgroundImageBitArray;
 char * twdWindDirImageRecentBitArray;
 int imageDataSize;
 int * start;
 int * histDataSize;
 void setCurrentWindow( char *);
+char * oddImageData;
+char * evenImageData;
+
 
