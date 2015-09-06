@@ -72,14 +72,14 @@ void start_menu_window_unload(Window *window) {// Deinitialize resources on wind
 }
 
  void show_start_menu(){
- window = window_create();
-
+ 	window = window_create();
+	setCurrentWindow("none");
   // Setup the window handlers
-  window_set_window_handlers(window, (WindowHandlers) {
-    .load = start_menu_window_load,
-    .unload = start_menu_window_unload,
-	.appear = start_menu_window_appear,
-  });
+  	window_set_window_handlers(window, (WindowHandlers) {
+    	.load = start_menu_window_load,
+   	 	.unload = start_menu_window_unload,
+		.appear = start_menu_window_appear,
+  	});
 	window_stack_push(window, true /* Animated */);
 }
 

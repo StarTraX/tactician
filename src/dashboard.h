@@ -11,7 +11,7 @@ enum  { //incoming message  keys
 	PERFTGTBTV,
 	PERFTGTTWA,
 	PERFTGTVMG,
-	PERFACTUALVMG,
+	PERFACTUALVMG, //8
 	PERFPCDISP,
 	SOG, //NAVIGATION
 	COG, //COG(M)
@@ -63,8 +63,8 @@ enum  { //incoming message  keys
 	WINDDIR, //57 wind direction image
 	WINDDIRRECENT, //58 // recent wind dir image
 	WINDDIRMEAN, //59 // wind dir mean numberOfDisplays
-	WINDDIRRECENTEVEN, // 60 recent TWD 10-min history odd bytes (0,2,4..
-	WINDIRRECENTODD, // 61 recent TWD 10-min history even bytes (1,3,5
+	WINDDIREVEN, // 60 recent TWD 10-min history odd bytes (0,2,4..
+	WINDIRODD, // 61 recent TWD 10-min history even bytes (1,3,5
 	numberOfDisplays, //count of the number of displays	
 } ;
 char * courseName, * seriesName;
@@ -73,7 +73,8 @@ char * wptName, * nextLegName;
 char * adminRole; // = "admin";
 TextLayer * displayFields[numberOfDisplays];
 char * currentCourseText;
-char * courseDivsText;
+char * courseDivsByteArray;
+int courseDivsSize; // size of 
 char * seriesList;
 char * splashScreenMessage,  * refreshingMsg;
 GFont displayFont1, dispHdgFont1;
@@ -86,7 +87,7 @@ void send_to_phone();
 time_t msgReceivedTimestamp;
 char * windImageData;
 int windImageDataSize;
-Layer *s_canvas_layer;
+Layer *s_canvas_layer; // wind window
 // wind_recent history  
 char * twdWindDirImageRecentBitArray;
 int imageDataSize;
@@ -95,5 +96,6 @@ int * histDataSize;
 void setCurrentWindow( char *);
 char * oddImageData;
 char * evenImageData;
+SimpleMenuLayer *nav_menu_layer;
 
 

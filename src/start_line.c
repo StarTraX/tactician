@@ -1,11 +1,12 @@
 #include <pebble.h>
 #include "start_line.h"
 #include "dashboard.h"
-# define STARTLINECOUNT 6
+# define STARTLINECOUNT 7
 static Window *s_window;
  static ScrollLayer *scroll_layer;
 //ActionBarLayer *action_bar;
 static int dispList [STARTLINECOUNT] = {
+	GPSTIME,
 	LINELENGTH,
 	LINEBIAS, 
 	PREFEND, 
@@ -15,9 +16,12 @@ static int dispList [STARTLINECOUNT] = {
 
 char Msg[60];
 void set_text_layer( int dispIdx ){
-	displayFields[dispIdx] = text_layer_create(GRect(0, rowSpace*(rowIndex++), 126, 40)); //GPS Time	
+	displayFields[dispIdx] = text_layer_create(GRect(0, rowSpace*(rowIndex++), 144, 40)); //GPS Time	
   	text_layer_set_font( displayFields[dispIdx], displayFont1);
   	scroll_layer_add_child(scroll_layer, (Layer *)displayFields[dispIdx]);
+}
+static void refreshData(Layer *this_layer, GContext *ctx){
+	setCurrentWindow("start_line");
 }
 static void window_load(Window *window) {
 	rowIndex=0;
@@ -28,6 +32,8 @@ static void window_load(Window *window) {
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
   	scroll_layer_set_click_config_onto_window(scroll_layer, window);
+	layer_set_update_proc((Layer *) scroll_layer, refreshData);
+
   	scroll_layer_set_content_size(scroll_layer, GSize(144,500)); // size of the surface that scrolls???
 	for (int i =0; i <STARTLINECOUNT; i++){
 		set_text_layer(dispList[i]);
@@ -35,7 +41,7 @@ static void window_load(Window *window) {
 
 	layer_add_child(window_get_root_layer(window), scroll_layer_get_layer(scroll_layer));
 }
-static void handle_nav_window_unload(Window* window) {
+static void window_unload(Window* window) {
 	setCurrentWindow("none");
 	for (int i =0; i <STARTLINECOUNT; i++){
 		text_layer_destroy(displayFields[dispList[i]]);
@@ -56,7 +62,7 @@ void show_start_line(void) {
 
   window_set_window_handlers(s_window, (WindowHandlers) {
 	  .load = window_load,
-    .unload = handle_nav_window_unload,
+    .unload = window_unload,
 	  .appear = window_appear,
   });
   window_stack_push(s_window, true);

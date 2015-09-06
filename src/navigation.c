@@ -23,6 +23,9 @@ void set_nav_text_layer( int dispIdx ){
   	text_layer_set_font( displayFields[dispIdx], displayFont1);
   	scroll_layer_add_child(scroll_layer, (Layer *)displayFields[dispIdx]);
 }
+static void refreshData(Layer *this_layer, GContext *ctx){
+	setCurrentWindow("navigation");
+}
 static void window_load(Window *window) {
 	rowIndex=0;
 	rowSpace = 32;
@@ -31,7 +34,8 @@ static void window_load(Window *window) {
 					
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
-  	scroll_layer_set_click_config_onto_window(scroll_layer, window);
+ 	layer_set_update_proc((Layer *) scroll_layer, refreshData);
+ 	scroll_layer_set_click_config_onto_window(scroll_layer, window);
   	scroll_layer_set_content_size(scroll_layer, GSize(144,400)); // size of the surface that scrolls???
 	for (int i = 0; i <SPEEDHDGCOUNT; i++){
 		set_nav_text_layer(dispList[i]);

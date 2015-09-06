@@ -1,7 +1,7 @@
 {
     "appKeys": {},
     "capabilities": [
-        "configurable"
+        
     ],
     "companyName": "pebble@gpsanimator.com",
     "longName": "StarTraX Tactician",
@@ -18,18 +18,13 @@
                 "menuIcon": true,
                 "name": "MENU_IMAGE",
                 "type": "png"
-            },
-			{
-        		"name": "HEADING_BIT_ARRAY",
-        		"file": "data/bigImage.dat",
-        		"type": "raw"
-     		}
+            }			
         ]
     },
     "sdkVersion": "3",
     "shortName": "Tactician",
     "targetPlatforms": [
-        "aplite", "basalt"       
+        "aplite" , "basalt"    
     ],
     "uuid": "0ec62310-32fe-4430-9b2b-555e72c3179d",
     "versionLabel": "2.3",
