@@ -5,7 +5,7 @@
 #include "start_ping_menu.h"
 #include "start_time_menu.h"
 #include "start_solution.h"
-
+#include "finish_time.h"
 	
  int num_a_items =0;
  Window *window;
@@ -18,10 +18,18 @@ void start_menu_select_callback(int index, void *ctx) {
 		show_start_line();	
 	else if(index==1)
 		show_start_solution();	
-	else if(index== 2)
-		show_start_ping_menu(); 
-	else if(index== 3)
-		show_start_time_menu();
+	else if(index== 2){
+		send_to_phone(TupletCString(103, "FIN")); 
+		vibes_short_pulse();
+		window_stack_pop(true); //this window
+		show_finish_time();
+	}
+	else if(index== 3){
+		send_to_phone(TupletCString(103, "POI")); 
+		vibes_short_pulse();
+
+		window_stack_pop(true); //this window
+	}
 }
 
 void start_menu_window_load(Window *window) {
@@ -38,20 +46,21 @@ void start_menu_window_load(Window *window) {
     .title = "Time & Distance",
     .subtitle = "Time & Distance",
     .callback = start_menu_select_callback,
-  }; 
+  };
+ 
 	if (intRole==0){ //only available for admin user
 		menu_items[num_a_items++] = (SimpleMenuItem){
-		  .title = "  PING ",
-		 .subtitle = "Ping the line ends",
+		  .title = "Ping  FINISH ",
+		 .subtitle = "Ping the finish (time&loc'n). ",
 		.callback = start_menu_select_callback,
 	  };
 	 menu_items[num_a_items++] = (SimpleMenuItem){
-		.title = "  TIMER ",
-		.subtitle = "Start the countdow.",
+		.title = "Ping POI --(TBA) ----",
+		.subtitle ="Ping a Point of Interest. ",
 		.callback = start_menu_select_callback,
 	  };
 	}
- 
+
   // Bind the menu items to the corresponding menu sections
   menu_sections[0] = (SimpleMenuSection){
 	  .title = "Starting Menu",

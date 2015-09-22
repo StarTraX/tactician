@@ -40,41 +40,7 @@ static void canvas8_update_proc(Layer *this_layer, GContext *ctx) {
 
 	return decodedByte;
 }
-/* receives Base64-encoded data in sextets, not octet bytes
 
- */
-static void canvas6_update_proc(Layer *this_layer, GContext *ctx) {
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "evenImageData  : %s", & evenImageData[0]);
-	APP_LOG(APP_LOG_LEVEL_DEBUG, "oddImageData  : %s", & oddImageData[0]);
-
-	int rowIdx, colIdx;
-	int ptr = 0 ; // the 
-	char bitMask ;
-	for (int byteIdx = 0; byteIdx <imageDataSize ; byteIdx ++ ){// imageDataSize is the length of the data (1728 bytes)
-		rowIdx = byteIdx/12; //(int) 144 cols, /6 bits/sextet = 24 octects per row, /2 (odd&even) =12
-		// the start x-value for this pair of sextets
-		colIdx = byteIdx % 12; // 
-		ptr = colIdx*12; // x-value for the first bit in this pair of 
-		char evenByte = base64Decode(evenImageData[byteIdx]);
-		char oddByte  = base64Decode(oddImageData[byteIdx]);
-
-
-		bitMask = 0x1; // the least significant bit of the byte
-	for (int bitIdx = 0; bitIdx <6; bitIdx++) { // loop around each bit in this sextet
-			if ((evenByte & bitMask) > 0) 
-				graphics_draw_pixel(ctx, GPoint(ptr, rowIdx) );
-			ptr++;
-			if ((oddByte & bitMask) > 0) 
-				graphics_draw_pixel(ctx, GPoint(ptr, rowIdx) );
-			bitMask = bitMask*2;
-			ptr++;
-		}
-	}		
-	if (whichWindow ==0 )
-	 	setCurrentWindow( "windRose");
-	else	
-	 	setCurrentWindow( "windRecent"); 
-}
 static void set_text_layer( int dispIdx ){
 	displayFields[dispIdx] = text_layer_create(GRect(0, -5, 144, 24)); //GPS Time
   	text_layer_set_font( displayFields[dispIdx], dispHdgFont1	);
@@ -122,7 +88,6 @@ void disp_wind(void) {
 	window_set_window_handlers(s_window, (WindowHandlers) {
 		.load = window_load,
 		.unload = window_unload,
-
 	  });  
 
 	window_set_click_config_provider(s_window, click_config_provider);

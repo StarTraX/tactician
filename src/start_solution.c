@@ -1,6 +1,6 @@
 #include <pebble.h>
 #include "start_solution.h"
-
+#include "start_time_menu.h"
 #include "dashboard.h"
 #define STARTSOLUTIONCOUNT 4
 static Window *window;
@@ -23,6 +23,15 @@ static void set_text_layer( int dispIdx ){
 static void refreshData(Layer *this_layer, GContext *ctx){
 	setCurrentWindow("start_solution");
 }
+static void closeAndNextMenu(){ // to save stack space
+	window_stack_pop(false);
+	show_start_time_menu();
+}
+static void config_provider() {
+	if (intRole==0){
+	   window_single_click_subscribe(BUTTON_ID_SELECT, closeAndNextMenu);
+	}
+}
 static void window_load (Window* window) { 
 	rowSpace = 32;
 	text_layer_set_text(page_heading, "START TIME & DIST");
@@ -31,6 +40,8 @@ static void window_load (Window* window) {
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
   	scroll_layer_set_click_config_onto_window(scroll_layer, window);
+	scroll_layer_set_callbacks(scroll_layer, (ScrollLayerCallbacks){
+		.click_config_provider = &config_provider,});
 	layer_set_update_proc((Layer *) scroll_layer, refreshData);
   	scroll_layer_set_content_size(scroll_layer, GSize(144,400)); // size of the surface that scrolls???
 	rowIndex = 0; // first row for the timer

@@ -4,6 +4,7 @@
 #include <navigation_menu.h>
 #include <start_menu.h>
 #include <wind_dir.h>
+#include <wind_set.h>
 #include <aSplash.h>
 #include <dashboard.h>
 
@@ -29,20 +30,25 @@ static void config_provider(){
 static void menu_select_callback(int index, void *ctx) {
 	switch (index){
 	case 0:
-		APP_LOG(APP_LOG_LEVEL_INFO, "Starting");
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Start/Fin/POI");
 		show_start_menu();
 		break;	
 	case 1:
-		APP_LOG(APP_LOG_LEVEL_INFO, "Performance");
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Performance");
 		show_performance();
 		break;
 	case 2:
-		APP_LOG(APP_LOG_LEVEL_DEBUG_VERBOSE, "show_nav_menu");
+		//APP_LOG(APP_LOG_LEVEL_DEBUG_VERBOSE, "show_nav_menu");
 		show_nav_menu();
 		break;
 	case 3:
-		APP_LOG(APP_LOG_LEVEL_DEBUG_VERBOSE, "show_wind");
-		disp_wind();
+		//APP_LOG(APP_LOG_LEVEL_DEBUG_VERBOSE, "show_wind");
+		if (hasBoatInterface==true)
+			disp_wind();
+		else{
+			setCurrentWindow( "windSet"); // to request TWS/TWD 
+			wind_set();
+		}
 		break;
 	}
 }
@@ -51,7 +57,7 @@ static void window_load(Window *window) {
 	window_set_click_config_provider(window, config_provider);
   int num_a_items = 0;
    first_menu_items[num_a_items++] = (SimpleMenuItem){
-    .title = "Starting",
+    .title = "Start/Fin/POI",
     .subtitle = "Start Line, Timer, Plan",
     .callback = menu_select_callback,
   };
@@ -68,7 +74,8 @@ static void window_load(Window *window) {
   }; 
 	first_menu_items[num_a_items++] = (SimpleMenuItem){
     .title = "Wind",
-    .subtitle = "Wind direction rose",
+   // .subtitle = (hasBoatInterface==true)?"Wind direction rose":"Set TWD/TWS",
+   .subtitle ="Wind direction rose",
     .callback = menu_select_callback,
   };
 // Bind the menu items to the corresponding menu sections

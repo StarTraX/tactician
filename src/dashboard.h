@@ -65,6 +65,10 @@ enum  { //incoming message  keys
 	WINDDIRMEAN, //59 // wind dir mean numberOfDisplays
 	WINDDIREVEN, // 60 recent TWD 10-min history odd bytes (0,2,4..
 	WINDIRODD, // 61 recent TWD 10-min history even bytes (1,3,5
+	FINISHTIMEMSG, //62 Ping finish line message: time lat/lon
+	WINDSETTWD, //63 - TWDS for manual wind set menu
+	WINDSETTWS, //64 - TWS for manual wind set menu
+	HASBOATINTERFACE, //65 set if we receive $II msgs
 	numberOfDisplays, //count of the number of displays	
 } ;
 char * courseName, * seriesName;
@@ -97,5 +101,8 @@ void setCurrentWindow( char *);
 char * oddImageData;
 char * evenImageData;
 SimpleMenuLayer *nav_menu_layer;
+int  *windSetTwd;
+int  *windSetTws;
+bool hasBoatInterface;
 
 

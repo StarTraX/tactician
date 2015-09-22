@@ -5,6 +5,7 @@
 	extern const PebbleProcessInfo __pbl_app_info;
 	int main(void) {
 	adminRole = "admin";
+	hasBoatInterface=false;
 	intRole=1; //default to crew;
 	APP_LOG(APP_LOG_LEVEL_INFO, "StarTraX Tactician version %d.%d", __pbl_app_info.process_version.major, 
 		__pbl_app_info.process_version.minor );

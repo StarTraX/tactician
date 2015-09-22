@@ -1,6 +1,7 @@
 #include <pebble.h>
 #include "start_line.h"
 #include "dashboard.h"
+#include "start_ping_menu.h"
 # define STARTLINECOUNT 7
 static Window *s_window;
  static ScrollLayer *scroll_layer;
@@ -23,6 +24,15 @@ void set_text_layer( int dispIdx ){
 static void refreshData(Layer *this_layer, GContext *ctx){
 	setCurrentWindow("start_line");
 }
+static void closeAndNextMenu(){ // to save stack space
+	window_stack_pop(false);
+	show_start_ping_menu();
+}
+static void config_provider() {
+	if (intRole==0){
+	   window_single_click_subscribe(BUTTON_ID_SELECT, closeAndNextMenu);
+	}
+}
 static void window_load(Window *window) {
 	rowIndex=0;
 	rowSpace = 32;
@@ -32,6 +42,8 @@ static void window_load(Window *window) {
  	GRect max_text_bounds = GRect(0, 26, 144, 168); //TODO parameterise scroll-window height
  	scroll_layer = scroll_layer_create(max_text_bounds);  // size of the scroll layer
   	scroll_layer_set_click_config_onto_window(scroll_layer, window);
+	scroll_layer_set_callbacks(scroll_layer, (ScrollLayerCallbacks){
+		.click_config_provider = &config_provider,});
 	layer_set_update_proc((Layer *) scroll_layer, refreshData);
 
   	scroll_layer_set_content_size(scroll_layer, GSize(144,500)); // size of the surface that scrolls???

@@ -17,6 +17,7 @@ Tuple *dataReceived;
 int mcount=0;
 long msgReceivedTimestamp =2000000000; 
 int intRole; // 0: admin, 1: crew
+int myVal;
 
 /* ------------ DECLARATIONS: ------*/
 void checkMsgTime(struct tm *tick_time, TimeUnits units_changed);
@@ -127,6 +128,20 @@ void in_received_handler(DictionaryIterator *iter, void *context) {
 				if (s_canvas_layer!=NULL)
 						layer_mark_dirty(s_canvas_layer);			
 				break;	
+			case WINDSETTWD: //63 TWD manually set 
+				memcpy(windSetTwd,  & dataReceived->value->int16, sizeof(int));
+				APP_LOG(APP_LOG_LEVEL_DEBUG, "WINDSETTWD received %d ",  *windSetTwd );
+			break;
+
+			case WINDSETTWS: //64 TWS
+				memcpy(windSetTws, & dataReceived->value->int16, sizeof(int));
+				APP_LOG(APP_LOG_LEVEL_DEBUG, "WINDSET TWS received %d ",  *windSetTws );
+			break;
+			case HASBOATINTERFACE: //65 TWS
+				APP_LOG(APP_LOG_LEVEL_DEBUG, "WATCH received HASBOATINTERFACE");
+					hasBoatInterface=true;
+			break;
+
 			case 200: //200 test data from Logger
 				//printf("WATCH received data from logger (200): %s", dataReceived->value->cstring);
 			 	//splashScreenMessage = dataReceived->value->cstring;
@@ -189,7 +204,11 @@ void checkMsgTime(struct tm *tick_time, TimeUnits units_changed) {
 	currentCourseText = malloc(1); //for current course display
 	courseDivsText = malloc(1); 
 	windImageData = malloc(1); 
-	start = malloc(sizeof(int));
+	//start = malloc(sizeof(int));
+	windSetTwd = malloc(sizeof(int));
+	*windSetTwd = 0;
+	windSetTws = malloc(sizeof(int));
+	*windSetTws = 0;
 	histDataSize = malloc(sizeof(int));
 	//printf("dashboard_init BEFORE imageData malloc: %d, Free %d",heap_bytes_used(), heap_bytes_free());
 	evenImageData  = malloc(1296); //0,2,4...
